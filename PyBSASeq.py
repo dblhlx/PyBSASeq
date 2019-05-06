@@ -3,7 +3,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Oct  5 08:22:16 2018
-@author: zjb
+@author: Jianbo Zhang
 """
 import pandas as pd
 import matplotlib.pyplot as plt
