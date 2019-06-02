@@ -434,8 +434,8 @@ fig, axs = plt.subplots(nrows=2, ncols=numOfChrs, figsize=(20, 10), sharex='col'
 qualityDF = snpDF[(snpDF[fbID+'.GQ']>=20) & (snpDF[sbID+'.GQ']>=20) & (snpDF['ALT'].str.len()==1)]
 misc.append(['Dataframe filtered with quality scores', qualityDF.shape])
 
-thrshld = 0.12666668
-# thrshld = smThresholds(qualityDF)[1]
+# thrshld = 0.12666668
+thrshld = smThresholds(qualityDF)[1]
 print(f'Simulating ltaSNP ratio threshold - complete - {time.time()-t0} seconds')
 
 # Filter out the entries with similar 'AD' ratio in both bulks
