@@ -235,7 +235,7 @@ def bsaseqPlot(chrmIDL, datafr, datafrT):
             axs[0,i-1].set_ylabel('Number of SNPs')
             axs[1,i-1].set_ylabel(r'ltaSNP/totalSNP')
 
-        chrEnd.append((swStr+swEnd)/2)
+        chrEnd.append(x[-1])
         i += 1
     print(f'Preparation for plotting - complete - {time.time()-t0} seconds')
     print('Total SNPs:', sum(numOfTotalSNPInSwL), 'number of sliding windows: ', len(numOfTotalSNPInSwL), 'average number of SNPs: ', sum(numOfTotalSNPInSwL)/len(numOfTotalSNPInSwL))
