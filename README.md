@@ -3,7 +3,7 @@ A novel algorithm for BSA-Seq data analysis implemented in Python
 
 Python 3.6 or above is required to run the script. 
 
-#### Usage:
+#### Usage
 
 `$ python PyBSASeq.py -i input -o output -p popstrct -f fbsize -s sbsize`
 
