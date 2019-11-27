@@ -5,7 +5,7 @@ Python 3.6 or above is required to run the script.
 
 #### Usage
 
-`$ python PyBSASeq.py -i input -o output -p popstrct -f fbsize -s sbsize`
+`$ python PyBSASeq.py -i input -o output -p popstrct -f fbsize -s sbsize --swsize`
 
 Here are the details of the options used in the script:
 - input – the name of the input file (the GATK4-generated tsv file)
@@ -13,6 +13,7 @@ Here are the details of the options used in the script:
 - popstrct – population structure; three choices available: F2 for an F2 population, RIL for a population of recombinant inbred lines, or BC for a backcross population
 - fbsize – the number of individuals in the first bulk
 - sbsize – the number of individuals in the second bulk
+- swsize - the size of the slinding window. The default value is 2000000
 
 The default p-value for identifying ltaSNPs from the SNP data set is 0.01 (alpha), the default p-value for identifying ltaSNPs from the simulated dataset is 0.1 (smalpha). These values can be changed using the following options:
 
