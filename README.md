@@ -5,7 +5,7 @@ Python 3.6 or above is required to run the script.
 
 #### Usage
 
-`$ python PyBSASeq.py -i input -o output -p popstrct -f fbsize -s sbsize --swsize slidingWindowSize`
+`$ python PyBSASeq.py -i input -o output -p popstrct -f fbsize -s sbsize`
 
 Here are the details of the options used in the script:
 - input – the name of the input file (the GATK4-generated tsv file)
@@ -13,13 +13,15 @@ Here are the details of the options used in the script:
 - popstrct – population structure; three choices available: F2 for an F2 population, RIL for a population of recombinant inbred lines, or BC for a backcross population
 - fbsize – the number of individuals in the first bulk
 - sbsize – the number of individuals in the second bulk
-- slidingWindowSize - the size of the sliding window in base pair. The default value is 2000000
 
 The default cutoff p-value for identifying ltaSNPs from the SNP dataset is 0.01 (alpha), and the default cutoff p-value for identifying ltaSNPs from the simulated dataset is 0.1 (smalpha). These values can be changed using the following options:
 
 `--alpha p1 --smalpha p2`
 
 p1 and p2 should be in the range of 0.0 – 1.0, the chosen value should make statistical sense. The greater the p2 value, the higher the threshold and the lower the false positive rate.
+
+The default size of the sliding windows is 2000000 (base pairs), and its value can be changed using the following option:
+`--swsize slidingWindowSize`
 
 #### Workflow
 1. SNP filtering
