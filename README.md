@@ -5,7 +5,7 @@ Python 3.6 or above is required to run the script.
 
 #### Usage
 
-`$ python PyBSASeq.py -i input -o output -p popstrct -f fbsize -s sbsize --swsize`
+`$ python PyBSASeq.py -i input -o output -p popstrct -f fbsize -s sbsize --swsize slidingWindowSize`
 
 Here are the details of the options used in the script:
 - input – the name of the input file (the GATK4-generated tsv file)
