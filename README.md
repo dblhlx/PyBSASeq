@@ -23,7 +23,7 @@ p1 and p2 should be in the range of 0.0 – 1.0, the chosen value should make st
 
 #### Workflow
 1. SNP filtering
-2. Perform Fisher's exact test using the AD values of each SNP from both bulks. A p-value will be otained, whcih can be used to identify ltaSNPs from the SNP data set. In the meantime, simulated REF/ALT reads of each SNP is obtained under null hypothesis via simulation, and again Fisher's exact test is performed using the simulated AD values, and the p-value based on the simulated AD values can be used to identify ltaSNPs from the simulated dataset (for threshold calculation). A file "COMPLETE.txt" is writen in the working directory if Fisher's exact test is successful, and the results of Fisher's exact test are saved in a .csv file. The "COMPLETE.txt" file need to be deleted if startover is desired. 
+2. Perform Fisher's exact test using the AD values of each SNP from both bulks. A p-value will be otained, whcih can be used to identify ltaSNPs from the SNP dataset. In the meantime, simulated REF/ALT reads of each SNP is obtained under null hypothesis via simulation, and again Fisher's exact test is performed using the simulated AD values, and the p-value based on the simulated AD values can be used to identify ltaSNPs from the simulated dataset (for threshold calculation). A file "COMPLETE.txt" is writen in the working directory if Fisher's exact test is successful, and the results of Fisher's exact test are saved in a .csv file. The "COMPLETE.txt" file need to be deleted if startover is desired. 
 3. Threshold calculation. The results is save in the "threshold.txt" file. The "threshold.txt" file need to be deleted if startover is desired.
 4. Plotting.
 
