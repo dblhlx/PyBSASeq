@@ -15,7 +15,7 @@ Here are the details of the options used in the script:
 - sbsize – the number of individuals in the second bulk
 - swsize - the size of the sliding window. The default value is 2000000
 
-The default p-value for identifying ltaSNPs from the SNP data set is 0.01 (alpha), the default p-value for identifying ltaSNPs from the simulated dataset is 0.1 (smalpha). These values can be changed using the following options:
+The default cutoff p-value for identifying ltaSNPs from the SNP data set is 0.01 (alpha), the default cutoff p-value for identifying ltaSNPs from the simulated dataset is 0.1 (smalpha). These values can be changed using the following options:
 
 `--alpha p1 --smalpha p2`
 
