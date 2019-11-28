@@ -25,8 +25,8 @@ The default size of the sliding windows is 2000000 (base pairs), and its value c
 
 #### Workflow
 1. SNP filtering
-2. Perform Fisher's exact test using the AD values of each SNP from both bulks. A SNP would be identified as a ltaSNP if its p-value is less than p1. In the meantime, simulated REF/ALT reads of each SNP is obtained via simulation under null hypothesis, and Fisher's exact test is also performed using these simulated AD values. For each SNP, it would be a ltaSNP if its p-value is less than p2. Identification of ltaSNPs from the simulated dataset is for threshold calculation. A file named "COMPLETE.txt" will be writen to the working directory if Fisher's exact test is successful, and the results of Fisher's exact test are saved in a .csv file. The "COMPLETE.txt" file needs to be deleted in case startover is desired. 
-3. Threshold calculation. The results is saved in the "threshold.txt" file. The "threshold.txt" file needs to be deleted if startover is desired (e.g, if the sliding window size is changed).
+2. Perform Fisher's exact test using the AD values of each SNP from both bulks. A SNP would be identified as a ltaSNP if its p-value is less than p1. In the meantime, simulated REF/ALT reads of each SNP is obtained via simulation under null hypothesis, and Fisher's exact test is also performed using these simulated AD values. For each SNP, it would be a ltaSNP if its p-value is less than p2. Identification of ltaSNPs from the simulated dataset is for threshold calculation. A file named "COMPLETE.txt" will be writen to the working directory if Fisher's exact test is successful, and the results of Fisher's exact test are saved in a .csv file. The "COMPLETE.txt" file needs to be deleted in case starting over is desired. 
+3. Threshold calculation. The results is saved in the "threshold.txt" file. The "threshold.txt" file needs to be deleted if starting over is desired (e.g, if the sliding window size is changed).
 4. Plotting.
 
 #### Dataset
