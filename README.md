@@ -13,7 +13,7 @@ Here are the details of the options used in the script:
 - popstrct – population structure; three choices available: F2 for an F2 population, RIL for a population of recombinant inbred lines, or BC for a backcross population
 - fbsize – the number of individuals in the first bulk
 - sbsize – the number of individuals in the second bulk
-- slidingWindowSize - the size of the sliding window. The default value is 2000000
+- slidingWindowSize - the size of the sliding window in base pair. The default value is 2000000
 
 The default cutoff p-value for identifying ltaSNPs from the SNP dataset is 0.01 (alpha), the default cutoff p-value for identifying ltaSNPs from the simulated dataset is 0.1 (smalpha). These values can be changed using the following options:
 
