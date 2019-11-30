@@ -1,5 +1,5 @@
 ### PyBSASeq
-A novel algorithm for BSA-Seq data analysis implemented in Python
+A novel algorithm for BSA-Seq data analysis
 
 Python 3.6 or above is required to run the script. 
 
