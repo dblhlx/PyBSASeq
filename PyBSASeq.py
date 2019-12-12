@@ -566,7 +566,7 @@ misc.append(['Average SNPs per sliding window', snpPerSW])
 misc.append([f'Average locus depth in bulk {fbID}', snpDF[fb_LD].mean()])
 misc.append([f'Average locus depth in bulk {sbID}', snpDF[sb_LD].mean()])
 
-# Calculate or retrieve the threshold. The threshoslds are normally in the range from 0.12 to 0.12666668
+# Calculate or retrieve the threshold.
 if os.path.isfile(os.path.join(path, 'threshold.txt')) == False:
     thrshld = smThresholds(snpDF)[1]
     with open(os.path.join(path, 'threshold.txt'), 'w') as xie:
