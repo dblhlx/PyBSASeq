@@ -22,9 +22,10 @@ The default cutoff p-value for identifying ltaSNPs from the SNP dataset is 0.01 
 
 p1 and p2 should be in the range of 0.0 – 1.0, the chosen value should make statistical sense. The greater the p2 value, the higher the threshold and the lower the false positive rate.
 
-The default size of the sliding window is 2000000 (base pairs), and its value can be changed using the following option:
+The default size of the sliding window is 2000000 (base pairs) and the incremental step is 10000 (base pairs), and their value can be changed using the following option:
 
 `--swsize slidingWindowSize`
+`--step incrementalStep`
 
 #### Workflow
 1. SNP filtering
