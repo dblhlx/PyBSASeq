@@ -1,3 +1,5 @@
+**Note**: it is strongly recommended to have [fisher](https://github.com/brentp/fishers_exact_test) installed on youe system. It is fast in dealing with large dataset.
+
 ### PyBSASeq
 A novel algorithm for BSA-Seq data analysis
 
