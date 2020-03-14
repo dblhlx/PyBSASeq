@@ -2,16 +2,16 @@
 Created on Fri Oct  5 08:22:16 2018
 @author: Jianbo Zhang
 """
-import pandas as pd
-import numpy as np
-from scipy.stats import fisher_exact
-import matplotlib.pyplot as plt
 import os
+import sys
+import time
 import datetime
 import argparse
-import time
 import csv
-import sys
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import savgol_filter
 
 
 def smAlleleFreq(popStruc, sizeOfBulk, rep):
@@ -131,8 +131,6 @@ def snpFiltering(df):
         df_InDel = snpDF[(snpDF['REF'].str.len()>1) | (snpDF['ALT'].str.split(',', expand=True)[0].str.len()>1) | \
         (snpDF['ALT'].str.split(',', expand=True)[1].str.len()>1)]
 
-        df_InDel.to_csv(os.path.join(filteringPath, 'InDel.csv'), index=None)
-
         # Create the SNP dataframe
         snpDF = snpDF[~((snpDF['REF'].str.len()>1) | (snpDF['ALT'].str.split(',', expand=True)[0].str.len()>1) | \
         (snpDF['ALT'].str.split(',', expand=True)[1].str.len()>1))]
@@ -142,15 +140,14 @@ def snpFiltering(df):
         # Identify inDels, REF/Alt allele with more than 1 base
         df_InDel = snpDF[(snpDF['REF'].str.len()>1) | (snpDF['ALT'].str.len()>1)]
 
-        df_InDel.to_csv(os.path.join(filteringPath, 'InDel.csv'), index=None)
-
         # Create the SNP dataframe
         snpDF = snpDF[~((snpDF['REF'].str.len()>1) | (snpDF['ALT'].str.len()>1))]
 
+    df_InDel.to_csv(os.path.join(filteringPath, 'InDel.csv'), index=None)
 
     snpDF.sort_values(['ChrmSortID', 'POS'], inplace=True)
 
-    print(f'SNP filtering completed, time elapsed: {(time.time()-t0)/3600} hours')
+    print(f'SNP filtering completed, time elapsed: {(time.time()-t0)/60} minutes')
 
 
 def statistics(row):
@@ -158,30 +155,80 @@ def statistics(row):
     try:
         fe = fisher_exact([[row[fb_AD_REF], row[fb_AD_ALT]], [row[sb_AD_REF], row[sb_AD_ALT]]])
     except TypeError:
-        fe = 'NA'
+        fe = ('NA', 'NA')
 
     # Perform Fisher's exact test for each SNP using the simulated REF/ALT reads
     try:
         sm_FE = fisher_exact([[row[sm_fb_AD_REF], row[sm_fb_AD_ALT]], [row[sm_sb_AD_REF], row[sm_sb_AD_ALT]]])
     except TypeError:
-        sm_FE = 'NA'
+        sm_FE = ('NA', 'NA')
 
     return [fe, sm_FE]
 
 
-def smThresholds(DF):
-    print('Calculate the threshold of ltaSNPs/totalSNPs.')
+# Using this function for the calculation of the threshold if 'fisher' is not available
+def smThresholds_proximal(DF):
+    print('Calculate the threshold of sSNPs/totalSNPs.')
     ratioLi = []
     for __ in range(rep):
         sm_SNP_SMPL = DF.sample(snpPerSW, replace=True)
-        sm_ltaSNP_SMPL = sm_SNP_SMPL[sm_SNP_SMPL['sm_FE_P']<smAlpha]
+        sm_sSNP_SMPL = sm_SNP_SMPL[sm_SNP_SMPL['sm_FE_P']<smAlpha]
 
-        ratioLi.append(len(sm_ltaSNP_SMPL.index)/snpPerSW)
+        ratioLi.append(len(sm_sSNP_SMPL.index)/snpPerSW)
 
-    misc.append(['Genome-wide ltaSNP/totalSNP ratio threshold', np.percentile(ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])])
-    print(f'Threshold calculation completed, time elapsed: {(time.time()-t0)/3600} hours')
+    misc.append(['Genome-wide sSNP/totalSNP ratio threshold', np.percentile(ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])])
+    print(f'Threshold calculation completed, time elapsed: {(time.time()-t0)/60} minutes')
 
     return np.percentile(ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
+
+
+# For the calculation of the genome-wide threshold
+def smThresholds_gw(DF):
+    print('Calculate the threshold of sSNPs/totalSNPs.')
+    gw_ratioLi = []
+    for __ in range(rep):
+        sm_SNP_SMPL = DF.sample(snpPerSW, replace=True)
+
+        gw_sm_fb_AD_ALT_Arr = np.random.binomial(sm_SNP_SMPL[fb_LD], fb_Freq).astype(np.uint)
+        gw_sm_fb_AD_REF_Arr = sm_SNP_SMPL[fb_LD].to_numpy().astype(np.uint) - gw_sm_fb_AD_ALT_Arr
+        gw_sm_sb_AD_ALT_Arr = np.random.binomial(sm_SNP_SMPL[sb_LD], sb_Freq).astype(np.uint)
+        gw_sm_sb_AD_REF_Arr = sm_SNP_SMPL[sb_LD].to_numpy().astype(np.uint) - gw_sm_sb_AD_ALT_Arr
+
+        __, __, gw_sm_FE_P_Arr = pvalue_npy(gw_sm_fb_AD_ALT_Arr, gw_sm_fb_AD_REF_Arr, gw_sm_sb_AD_ALT_Arr, gw_sm_sb_AD_REF_Arr)
+        # gw_sm_FE_OR_Arr = (gw_sm_fb_AD_ALT_Arr * gw_sm_sb_AD_REF_Arr) / (gw_sm_fb_AD_REF_Arr * gw_sm_sb_AD_ALT_Arr)
+
+        sSNP_Arr = np.where(gw_sm_FE_P_Arr<smAlpha, 1, 0)
+
+        gw_ratioLi.append(np.mean(sSNP_Arr))
+
+    misc.append(['Genome-wide sSNP/totalSNP ratio threshold', np.percentile(gw_ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])])
+    print(f'Threshold calculation completed, time elapsed: {(time.time()-t0)/60} minutes')
+
+    return np.percentile(gw_ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
+
+
+# For the calculation of the sliding window-specific threshold
+def smThresholds_sw(DF):
+    sw_ratioLi = []
+
+    sw_fb_LD_Arr = DF[fb_LD].to_numpy().astype(np.uint)
+    sw_sb_LD_Arr = DF[sb_LD].to_numpy().astype(np.uint)
+
+    for __ in range(rep):
+        # Create new columns for Fisher's exact test simulated P-values
+        sw_sm_fb_AD_ALT_Arr = np.random.binomial(DF[fb_LD], fb_Freq).astype(np.uint)
+        sw_sm_fb_AD_REF_Arr = sw_fb_LD_Arr - sw_sm_fb_AD_ALT_Arr
+        sw_sm_sb_AD_ALT_Arr = np.random.binomial(DF[sb_LD], sb_Freq).astype(np.uint)
+        sw_sm_sb_AD_REF_Arr = sw_sb_LD_Arr - sw_sm_sb_AD_ALT_Arr
+
+        __, __, sw_sm_FE_P_Arr = pvalue_npy(sw_sm_fb_AD_ALT_Arr, sw_sm_fb_AD_REF_Arr, sw_sm_sb_AD_ALT_Arr, sw_sm_sb_AD_REF_Arr)
+        # sw_sm_FE_OR_Arr = (sw_sm_fb_AD_ALT_Arr * sw_sm_sb_AD_REF_Arr) / (sw_sm_fb_AD_REF_Arr * sw_sm_sb_AD_ALT_Arr)
+
+        sSNP_Arr = np.where(sw_sm_FE_P_Arr<smAlpha, 1, 0)
+
+        sw_ratioLi.append(np.mean(sSNP_Arr))
+
+    return np.percentile(sw_ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
 
 
 def zeroSNP(li):
@@ -207,51 +254,70 @@ def replaceZero(li):
 def bsaseqPlot(chrmIDL, datafr, datafrT):
     '''
     wmL: list of warning messages
-    points: a dictionary with the chromosome ID as its keys; the value of each key is a list containing
-            the chromosome ID, the ltaSNP/totalSNP ratio in each sliding window, and the midpoint of
+    swDict: a dictionary with the chromosome ID as its keys; the value of each key is a list containing
+            the chromosome ID, the sSNP/totalSNP ratio in each sliding window, and the midpoint of
             the sliding window
     '''
     print('Prepare SNP data for plotting via the sliding window algorithm')
     global misc
-    wmL, points = [], {}
+    global snpRegion, swDataFrame
+    sg_yRatio_List = []
+    swRows = []
+    wmL, swDict, snpRegion = [], {}, []
 
     # Analyze each chromsome separately
-    numOfSNPOnChr, ratioPeakL, snpRegion = [], [], []
+    numOfSNPOnChr, ratioPeakL = [], []
     i = 1
     for chrmID in chrmIDL:
         ch = datafr[datafr.CHROM==chrmID]
         chT = datafrT[datafrT.CHROM==chrmID]
         numOfSNPOnChr.append([chrmID, len(ch.index), len(chT.index), len(ch.index)/len(chT.index)])
 
+        regStart = 1
+        regEnd = chT['POS'].max()
+        # if regStart == 0:
+        #     regStart = 1
+        # else:
+        #     regStart = regStart // 10000 * 10000 + 1
+
+        # if regEnd == 0:
+        #     regEnd = chT['POS'].max()
+        # else:
+        #     regEnd = (regEnd // 10000 + 1) * 10000
+
         # Sliding window. swStr: the begining of the window; swEnd: the end of the window; icrs: incremental step
-        swStr, swEnd, icrs = 1, swSize, 10000
-        plotSP = swEnd/2
+        swStr, swEnd, icrs = regStart, swSize, incrementalStep
+        plotSP = regStart
         # x and y are lists, each sliding window represents a single data point
         x, y, yT, yRatio = [], [], [], []
-        while swEnd <= chT['POS'].max():
+        while swEnd <= regEnd:
             # A single sliding window - a dataframe
-            # swDF: ltaSNPs in a sliding window; swDFT: all SNPs in a sliding window
+            # swDF: sSNPs in a sliding window; swDFT: all SNPs in a sliding window
             swDF = ch[(ch.POS>=swStr) & (ch.POS<=swEnd)]
             swDFT = chT[(chT.POS>=swStr) & (chT.POS<=swEnd)]
 
-            rowInSwDF = len(swDF.index)                 # number of ltaSNPs in a sliding window
+            rowInSwDF = len(swDF.index)                 # number of sSNPs in a sliding window
             rowInSwDFT = len(swDFT.index)               # number of total SNPs in a sliding window
 
-            x.append((swStr+swEnd)/2)                   # Append the midpoint of a sliding window to x
-            y.append(rowInSwDF)                         # Append number of ltaSNPs in a sliding window to y
+            x.append(swStr)                   # Append the starpoint of a sliding window to x
+            y.append(rowInSwDF)                         # Append number of sSNPs in a sliding window to y
             yT.append(rowInSwDFT)                       # Append number of totalSNPs in a sliding window to yT
 
             # len(swDL) or len(swDLT) would be zero if no SNP in a sliding window
             try:
-                yRatio.append(float(rowInSwDF/rowInSwDFT))  # Append the ratio of ltaSNP/totalSNP in a sliding window to yRatio
+                yRatio.append(float(rowInSwDF/rowInSwDFT))  # Append the ratio of sSNP/totalSNP in a sliding window to yRatio
             except ZeroDivisionError as e:
-                wmL.append(['No SNP', i, int((swStr+swEnd)/2), e])
+                wmL.append(['No SNP', i, swStr, e])
                 zeroSNP(yRatio)
 
-            if i not in points:
-                points[i] = [[chrmID, yRatio[-1], int((swStr+swEnd)/2), rowInSwDFT]]
+            rowContents = [chrmID, swStr, int(swDFT[fb_LD].mean()), int(swDFT[sb_LD].mean()), rowInSwDF, rowInSwDFT, yRatio[-1]]
+
+            swRows.append(rowContents)
+
+            if i not in swDict:
+                swDict[i] = [rowContents]
             else:
-                points[i].append([chrmID, yRatio[-1], int((swStr+swEnd)/2), rowInSwDFT])
+                swDict[i].append(rowContents)
 
             swStr += icrs
             swEnd += icrs
@@ -261,99 +327,115 @@ def bsaseqPlot(chrmIDL, datafr, datafrT):
             replaceZero(yRatio)
 
         pIndex = 0
-        while points[i][pIndex][1] == 'empty':
+        while swDict[i][pIndex][1] == 'empty':
             pIndex += 1
 
         j = 0
         while j < pIndex:
-            points[i][j][1] = points[i][pIndex][1]
+            swDict[i][j][1] = swDict[i][pIndex][1]
             j += 1
+
+        # Data smoothing
+        sg_yRatio = savgol_filter(yRatio, smthWL, polyOrder)
+
+        sg_yRatio_List.extend(sg_yRatio)
 
         # Handle the plot with a single column (chromosome)
         if len(chrmIDL) == 1:
+            # Set up x-ticks
+            axs[0].set_xticks(np.arange(0, max(x), 10000000))
+            ticks = axs[0].get_xticks()*1e-7
+            axs[0].set_xticklabels(ticks.astype(int))
+
+            # Add ylabels to the first column of the subplots
+            if i==1:
+                axs[0].set_ylabel('Number of SNPs')
+                axs[1].set_ylabel(r'sSNP/totalSNP')
+
             # SNP plot
             axs[0].plot(x, y, c='k')
             axs[0].plot(x, yT, c='b')
             axs[0].set_title('Chr'+chrmID)
 
-            # ltaSNP/totalSNP plot
-            axs[1].plot(x, yRatio, c='k')
-            # sg_yRatio = savgol_filter(yRatio, 51, 3)
-            # axs[1].plot(x, sg_yRatio, c='r')
+            # sSNP/totalSNP plot
+            if smoothing == True:
+                axs[1].plot(x, sg_yRatio, c='k')
+            else:
+                axs[1].plot(x, yRatio, c='k')
+
+            # axs[1].plot(x, smThresholds_sw, c='m')
 
             # Add the 99.5 percentile line as threshold, x[-1] is the midpoint of the last sliding window of a chromosome
             axs[1].plot([plotSP, x[-1]], [thrshld, thrshld], c='r')
 
+        # Handle the plot with multiple columns (chromosomes)
+        else:
             # Set up x-ticks
-            axs[1].set_xticks(np.arange(0, max(x), 10000000))
-            ticks = axs[1].get_xticks()*1e-7
-            axs[1].set_xticklabels(ticks.astype(int))
+            axs[0,i-1].set_xticks(np.arange(0, max(x), 10000000))
+            ticks = axs[0,i-1].get_xticks()*1e-7
+            axs[0,i-1].set_xticklabels(ticks.astype(int))
 
             # Add ylabels to the first column of the subplots
             if i==1:
-                axs[0].set_ylabel('Number of SNPs')
-                axs[1].set_ylabel(r'ltaSNP/totalSNP')
+                axs[0,i-1].set_ylabel('Number of SNPs')
+                axs[1,i-1].set_ylabel(r'sSNP/totalSNP')
 
-        # Handle the plot with multiple columns (chromosomes)
-        else:
             # SNP plot
             axs[0,i-1].plot(x, y, c='k')
             axs[0,i-1].plot(x, yT, c='b')
             axs[0,i-1].set_title('Chr'+chrmID)
 
-            # ltaSNP/totalSNP plot
-            axs[1,i-1].plot(x, yRatio, c='k')
-            # sg_yRatio = savgol_filter(yRatio, 51, 3)
-            # axs[1,i-1].plot(x, sg_yRatio, c='r')
+            # sSNP/totalSNP plot
+            if smoothing == True:
+                axs[1,i-1].plot(x, sg_yRatio, c='k')
+            else:
+                axs[1,i-1].plot(x, yRatio, c='k')
+
+            # axs[1, i-1].plot(x, smThresholds_sw, c='m')
 
             # Add the 99.5 percentile line as threshold, x[-1] is the midpoint of the last sliding window of a chromosome
             axs[1,i-1].plot([plotSP, x[-1]], [thrshld, thrshld], c='r')
-
-            # Set up x-ticks
-            axs[1,i-1].set_xticks(np.arange(0, max(x), 10000000))
-            ticks = axs[1,i-1].get_xticks()*1e-7
-            axs[1,i-1].set_xticklabels(ticks.astype(int))
-
-            # Add ylabels to the first column of the subplots
-            if i==1:
-                axs[0,i-1].set_ylabel('Number of SNPs')
-                axs[1,i-1].set_ylabel(r'ltaSNP/totalSNP')
 
         ratioPeakL.append(max(yRatio))
 
         # Identify genomic regions related to the trait
         m, peaks = 0, []
         # Handle the case in which an QTL is at the very begining of the chromosome
-        if points[i][0][1] >= thrshld:
-            snpRegion.append(points[i][0][:3])
-            if points[i][0][1] > points[i][1][1]:
-                peaks.append(points[i][0][1:])
+        if swDict[i][0][6] >= thrshld:
+            snpRegion.append(swDict[i][0][:2])
+            if swDict[i][0][6] >= swDict[i][1][6]:
+                peaks.append(swDict[i][0][1:])
             numOfSWs = 1
 
-        while m < len(points[i]) - 1:
-            if points[i][m][1] < thrshld and points[i][m+1][1] >= thrshld:
-                snpRegion.append(points[i][m+1][:3])
+        while m < len(swDict[i]) - 1:
+            if swDict[i][m][6] < thrshld and swDict[i][m+1][6] >= thrshld:
+                snpRegion.append(swDict[i][m+1][:2])
                 numOfSWs = 1
-            elif points[i][m][1] >= thrshld:
-                # A sliding window is considered as a peak if its ltaSNP/totalSNP is greater than or equal to the threshold and greater than those of the flanking sliding windows
-                if m >= 1 and max(points[i][m-1][1], points[i][m+1][1]) < points[i][m][1]:
-                    peaks.append(points[i][m][1:])
-                if points[i][m+1][1] > thrshld:
+            elif swDict[i][m][6] >= thrshld:
+                # A sliding window is considered as a peak if its sSNP/totalSNP is greater than or equal to the threshold and greater than those of the flanking sliding windows
+                if m >= 1 and max(swDict[i][m-1][6], swDict[i][m+1][6]) <= swDict[i][m][6]:
+                    peaks.append(swDict[i][m][1:])
+                if swDict[i][m+1][6] > thrshld:
                     numOfSWs += 1
-                elif points[i][m+1][1] < thrshld:
-                    snpRegion[-1].extend([points[i][m][2], peaks, numOfSWs])
+                elif swDict[i][m+1][6] < thrshld:
+                    snpRegion[-1].extend([swDict[i][m][1], peaks, numOfSWs])
                     peaks = []
             m += 1
         # Handle the case in which an QTL is nearby the end of the chromosome
-        if points[i][-1][1] >= thrshld:
-            snpRegion[-1].extend([points[i][-1][2], peaks, numOfSWs])
+        if swDict[i][-1][6] >= thrshld:
+            snpRegion[-1].extend([swDict[i][-1][1], peaks, numOfSWs])
 
         i += 1
 
-    misc.append(['List of the peaks of the chromosomes', ratioPeakL])
+    headerResults = ['CHROM','QTLStart','QTLEnd','Peaks', 'NumOfSWs']
+    pd.DataFrame(snpRegion, columns=headerResults).to_csv(os.path.join(results, 'snpRegion.csv'), index=False)
 
-    headerResults = ['CHROM',r'ltaSNP/totalSNP','QTLStart','QTLEnd','Peaks', 'NumOfSWs']
-    pd.DataFrame(snpRegion, columns=headerResults).to_csv(os.path.join(results, args['output']), index=False)
+    swDataFrame = pd.DataFrame(swRows, columns=['CHROM', 'sw_Str', fbID+'.AvgLD', sbID+'.AvgLD', 'sSNP', 'toatalSNP', r'sSNP/totalSNP'])
+    swDataFrame['smthedRatio'] = sg_yRatio_List
+
+    swDataFrame.to_csv(os.path.join(results, 'slidingWindows.csv'), index=False)
+
+    misc.append(['List of the peaks of the chromosomes', ratioPeakL])
 
     wrnLog = os.path.join(results, 'wrnLog.csv')
     with open(wrnLog, 'w', newline='') as outF1:
@@ -364,10 +446,58 @@ def bsaseqPlot(chrmIDL, datafr, datafrT):
     numOfSNPOnChrFile = os.path.join(results, 'numOfSNPOnChrFile.csv')
     with open(numOfSNPOnChrFile, 'w', newline='') as outF2:
         xie2 = csv.writer(outF2)
-        xie2.writerow(['Chromosome', 'Num of ltaSNPs', 'Num of totalSNPs', r'ltaSNP/totalSNP'])
+        xie2.writerow(['Chromosome', 'Num of sSNPs', 'Num of totalSNPs', r'sSNP/totalSNP'])
         xie2.writerows(numOfSNPOnChr)
 
-    print(f'Plotting completed, time elapsed: {(time.time()-t0)/3600} hours')
+    print(f'Plotting completed, time elapsed: {(time.time()-t0)/60} minutes')
+
+
+def peak(l):
+    ratioList = []
+    for subL in l:
+        ratioList.append(subL[5])
+
+    return l[ratioList.index(max(ratioList))]
+
+
+def pkList(l):
+    peakList = []
+    for subL in l:
+        if subL[3] != [] and subL[4] > 10:
+            tempL = peak(subL[3])
+            peakList.append([subL[0], tempL[0]])
+
+    return peakList
+
+
+def accurateThreshold_sw(l):
+    peaks = []
+    for subL in l:
+        peakSW = snpDF[(snpDF.CHROM == subL[0]) & (snpDF.POS >= subL[1]) & (snpDF.POS <= subL[1]+swSize-1)]
+        sSNP_PeakSW = peakSW[peakSW.FE_P<alpha]
+
+        sSNP, totalSNP = len(sSNP_PeakSW.index), len(peakSW.index)
+        ratio = sSNP / totalSNP
+
+        peaks.append([subL[0], subL[1], int(peakSW[fb_LD].mean()), int(peakSW[sb_LD].mean()), sSNP, totalSNP, ratio, smThresholds_sw(peakSW)[1]])
+
+    headerResults = ['CHROM','sw_Str', fbID+'.AvgLD', sbID+'.AvgLD', 'sSNP', 'totalSNP', r'sSNP/totalSNP', 'Threshold']
+    pd.DataFrame(peaks, columns=headerResults).to_csv(os.path.join(results, args['output']), index=False)
+
+
+def accurateThreshold_gw(l):
+    peaks = []
+    for subL in l:
+        peakSW = snpDF[(snpDF.CHROM == subL[0]) & (snpDF.POS >= subL[1]) & (snpDF.POS <= subL[1]+swSize-1)]
+        sSNP_PeakSW = peakSW[peakSW.FE_P<alpha]
+
+        sSNP, totalSNP = len(sSNP_PeakSW.index), len(peakSW.index)
+        ratio = sSNP / totalSNP
+
+        peaks.append([subL[0], subL[1], int(peakSW[fb_LD].mean()), int(peakSW[sb_LD].mean()), sSNP, totalSNP, ratio, thrshld])
+
+    headerResults = ['CHROM','sw_Str', fbID+'.AvgLD', sbID+'.AvgLD', 'sSNP', 'totalSNP', r'sSNP/totalSNP', 'Threshold']
+    pd.DataFrame(peaks, columns=headerResults).to_csv(os.path.join(results, args['output']), index=False)
 
 
 t0 = time.time()
@@ -384,7 +514,7 @@ plt.rc('figure', titlesize=22)              # fontsize of the figure title
 
 # Construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
-ap.add_argument('-i', '--input', required=False, help='file name of the GATK4-generated tsv file', default='smallTestFile.tsv')
+ap.add_argument('-i', '--input', required=False, help='file name of the GATK4-generated tsv file', default='snp100SE.tsv')
 ap.add_argument('-o', '--output', required=False, help='file name of the output csv file', default='BSASeq.csv')
 ap.add_argument('-f', '--fbsize', type=int, required=False, help='number of individuals in the first bulk', default=430)
 ap.add_argument('-s', '--sbsize', type=int, required=False, help='number of individuals in the second bulk', default=385)
@@ -393,22 +523,32 @@ ap.add_argument('--alpha', type=float, required=False, help='p-value for fisher\
 ap.add_argument('--smalpha', type=float, required=False, help='p-value for calculating threshold', default=0.1)
 ap.add_argument('-r', '--replication', type=int, required=False, help='the number of replications for threshold calculation', default=10000)
 ap.add_argument('--swsize', type=int, required=False, help='sliding windows size', default=2000000)
+ap.add_argument('--step', type=int, required=False, help='incremental step', default=10000)
 ap.add_argument('--hgap', type=float, required=False, help='distance between rows of subplots', default=0.028)
 ap.add_argument('--wgap', type=float, required=False, help='distance between columns of subplots', default=0.092)
+ap.add_argument('--smthwl', type=int, required=False, help='window lenght of the smoothing window', default=51)
+ap.add_argument('--polyorder', type=int, required=False, help='the order of the polynomial used to fit the samples', default=5)
+ap.add_argument('--smooth', type=bool, required=False, help='smooth the plot', default=False)
+# ap.add_argument('--regstart', type=int, required=False, help='start of interested region', default=0)
+# ap.add_argument('--regend', type=int, required=False, help='end of interested region', default=0)
+
 args = vars(ap.parse_args())
 
 popStr = args['popstrct']
 rep = args['replication']
 fb_Size, sb_Size = args['fbsize'], args['sbsize']
 alpha, smAlpha = args['alpha'], args['smalpha']
-swSize = args['swsize']
+swSize, incrementalStep = args['swsize'], args['step']
 hGap, wGap = args['hgap'], args['wgap']
+smoothing = args['smooth']
+smthWL, polyOrder = args['smthwl'], args['polyorder']
+# regStart, regEnd = args['regstart'], args['regend']
 
 fb_Freq = smAlleleFreq(popStr, fb_Size, rep)
 sb_Freq = smAlleleFreq(popStr, sb_Size, rep)
 
 path = os.getcwd()
-inFile, oiFile = os.path.join(path, args['input']), os.path.join(path, 'snp100SE_fe.csv')
+inFile, oiFile = os.path.join(path, args['input']), os.path.join(path, 'snp_SE_fe.csv')
 currentDT = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 results = os.path.join(path, 'Results', currentDT)
 filteringPath = os.path.join(path, 'FilteredSNPs')
@@ -428,6 +568,7 @@ chrmRawList = list(set(snpRawDF['CHROM'].tolist()))
 # Filter out chromosomes and unmapped fragments smaller than the sliding window
 # Make the chromosome list more readable and meaningful
 chrmList = chrmFiltering(snpRawDF, chrmRawList)[1]
+chrmList.sort()
 
 print(chrmList)
 print('\n')
@@ -442,13 +583,17 @@ while rightInput.lower() != 'yes':
     print(chrmIDL)
     rightInput = input('Are the chromosome names in the above list in the right order (yes or no)?\n')
 
+print('\n\'no\' should be the answer for the question below if the script is run the first time.\n')
+
+additionalPeaks = input('Do you want to have additional peaks identified (yes or no)?\n')
+
 # Filter out possible wrong chromosome name(s) and chromosomes smaller than the sliding window
 # Create a list containing the sizes of all the chromosomes
 chrmCheck = chrmFiltering(snpRawDF, chrmIDL)
 chrmSzL, chrmIDL = chrmCheck[0], chrmCheck[1]
 
 if chrmIDL == []:
-    print('No valid chromosome name was entered')
+    print('An invalid chromosome name was entered')
     sys.exit()
 
 # Create a numeric ID for each chromosome, which can be used to sort the dataframe numerically by chromosome
@@ -516,6 +661,11 @@ if os.path.isfile(os.path.join(path, 'COMPLETE.txt')) == False:
     snpDF[[sb_AD_REF, sb_AD_ALT]] = snpDF[sb_AD].str.split(',', expand=True).astype(int)
     snpDF[sb_LD] = snpDF[sb_AD_REF] + snpDF[sb_AD_ALT]
 
+    snpRep = snpDF[(snpDF[fb_LD]>400) | (snpDF[sb_LD]>400)]
+    snpRep.to_csv(os.path.join(filteringPath, 'repetitiveSeq.csv'), index=None)
+
+    snpDF = snpDF[(snpDF[fb_LD]<=400) | (snpDF[sb_LD]<=400)]
+
     # Filter out the SNPs with zero locus reads in either bulk
     snpDF_0LD = snpDF[~((snpDF[fb_LD]>0) & (snpDF[sb_LD]>0))]
     snpDF = snpDF[(snpDF[fb_LD]>0) & (snpDF[sb_LD]>0)]
@@ -527,19 +677,41 @@ if os.path.isfile(os.path.join(path, 'COMPLETE.txt')) == False:
     snpDF[sm_sb_AD_ALT] = np.random.binomial(snpDF[sb_LD], sb_Freq)
     snpDF[sm_sb_AD_REF] = snpDF[sb_LD] - snpDF[sm_sb_AD_ALT]
 
-    print('Perform Fisher\'s exact test. This step can take a few hours; the more SNPs in the dataset or the higher the sequencing depth, the longer will it take.')
-    snpDF['STAT'] = snpDF.apply(statistics, axis=1)
-    print(f'Fisher\'s exact test completed, time elapsed: {(time.time()-t0)/3600} hours')
+    try:
+        from fisher import pvalue_npy
+        # Create new columns for Fisher's exact test P-values and simulated P-values
+        print('Perform Fisher\'s exact test.')
+        fb_AD_ALT_Arr = snpDF[fb_AD_ALT].to_numpy(dtype=np.uint)
+        fb_AD_REF_Arr = snpDF[fb_AD_REF].to_numpy(dtype=np.uint)
+        sb_AD_ALT_Arr = snpDF[sb_AD_ALT].to_numpy(dtype=np.uint)
+        sb_AD_REF_Arr = snpDF[sb_AD_REF].to_numpy(dtype=np.uint)
 
-    # Create new columns for Fisher's exact test results
-    snpDF[['fisher_exact', 'sm_FE']] = pd.DataFrame(snpDF.STAT.values.tolist(), index=snpDF.index)
+        __, __, snpDF['FE_P'] = pvalue_npy(fb_AD_ALT_Arr, fb_AD_REF_Arr, sb_AD_ALT_Arr, sb_AD_REF_Arr)
+        # snpDF['FE_OR'] = (fb_AD_ALT_Arr * sb_AD_REF_Arr) / (fb_AD_REF_Arr * sb_AD_ALT_Arr)
 
-    # Create new columns for Fisher's exact test P-values or simulated P-values
-    snpDF['FE_P'] = snpDF['fisher_exact'].apply(lambda x: x[1]).astype(float)
-    snpDF['sm_FE_P'] = snpDF['sm_FE'].apply(lambda x: x[1]).astype(float)
+        sm_fb_AD_ALT_Arr = snpDF[sm_fb_AD_ALT].to_numpy(dtype=np.uint)
+        sm_fb_AD_REF_Arr = snpDF[sm_fb_AD_REF].to_numpy(dtype=np.uint)
+        sm_sb_AD_ALT_Arr = snpDF[sm_sb_AD_ALT].to_numpy(dtype=np.uint)
+        sm_sb_AD_REF_Arr = snpDF[sm_sb_AD_REF].to_numpy(dtype=np.uint)
+
+        __, __, snpDF['sm_FE_P'] = pvalue_npy(sm_fb_AD_ALT_Arr, sm_fb_AD_REF_Arr, sm_sb_AD_ALT_Arr, sm_sb_AD_REF_Arr)
+        # snpDF['sm_FE_OR'] = (sm_fb_AD_ALT_Arr * sm_sb_AD_REF_Arr) / (sm_fb_AD_REF_Arr * sm_sb_AD_ALT_Arr)
+
+    except ImportError:
+        from scipy.stats import fisher_exact
+        print('Perform Fisher\'s exact test. This step can take a few hours; the more SNPs in the dataset or the higher the sequencing depth, the longer will it take.')
+        snpDF['STAT'] = snpDF.apply(statistics, axis=1)
+        # Create new columns for Fisher's exact test results
+        snpDF[['fisher_exact', 'sm_FE']] = pd.DataFrame(snpDF.STAT.values.tolist(), index=snpDF.index)
+
+        # Create new columns for Fisher's exact test P-values or simulated P-values
+        snpDF['FE_P'] = snpDF['fisher_exact'].apply(lambda x: x[1]).astype(float)
+        snpDF['sm_FE_P'] = snpDF['sm_FE'].apply(lambda x: x[1]).astype(float)
+
+    print(f'Fisher\'s exact test completed, time elapsed: {(time.time()-t0)/60} minutes')
 
     # Remove unnecessary columns and reorgnaize the columns
-    reorderColumns = ['CHROM', 'POS', 'REF', 'ALT', fb_AD_REF, fb_AD_ALT, fb_LD, sm_fb_AD_ALT, fb_GQ, sb_AD_REF, sb_AD_ALT, sb_LD, sm_sb_AD_ALT,  sb_GQ, 'FE_P', 'sm_FE_P']
+    reorderColumns = ['CHROM', 'POS', 'REF', 'ALT', fb_AD_REF, fb_AD_ALT, fb_LD, sm_fb_AD_ALT, fb_GQ, sb_AD_REF, sb_AD_ALT, sb_LD, sm_sb_AD_ALT, sb_GQ, 'FE_P', 'sm_FE_P']
 
     snpDF = snpDF[reorderColumns]
 
@@ -560,15 +732,19 @@ snpDF = snpDF[(snpDF[fb_GQ]>=20) & (snpDF[sb_GQ]>=20)]
 misc.append(['Dataframe filtered with genotype quality scores', len(snpDF.index)])
 
 # Calculate the average number of SNPs in a sliding window
-snpPerSW = int(len(snpDF.index) * swSize/sum(chrmSzL))
+snpPerSW = int(len(snpDF.index) * swSize / sum(chrmSzL))
 
 misc.append(['Average SNPs per sliding window', snpPerSW])
 misc.append([f'Average locus depth in bulk {fbID}', snpDF[fb_LD].mean()])
 misc.append([f'Average locus depth in bulk {sbID}', snpDF[sb_LD].mean()])
 
-# Calculate or retrieve the threshold.
+# Calculate or retrieve the threshold. The threshoslds are normally in the range from 0.12 to 0.12666668
 if os.path.isfile(os.path.join(path, 'threshold.txt')) == False:
-    thrshld = smThresholds(snpDF)[1]
+    if 'fisher' in sys.modules:
+        thrshld = smThresholds_gw(snpDF)[1]
+    else:
+        thrshld = smThresholds_proximal(snpDF)[1]
+
     with open(os.path.join(path, 'threshold.txt'), 'w') as xie:
         xie.write(str(thrshld))
 else:
@@ -586,6 +762,12 @@ fig, axs = plt.subplots(nrows=len(heightRatio), ncols=len(chrmIDL), figsize=(20,
 # Perform plotting
 bsaseqPlot(chrmIDL, fe, snpDF)
 
+if 'fisher' not in sys.modules:
+    try:
+        from fisher import pvalue_npy
+    except ImportError:
+        print('The module \'Fisher\' is not installed on your computer')
+
 # Handle the plot with a single column (chromosome)
 if len(chrmIDL) == 1:
     fig.align_ylabels(axs[:])
@@ -596,14 +778,39 @@ else:
 # fig.tight_layout(pad=0.15, rect=[0, 0.035, 1, 1])
 fig.subplots_adjust(top=0.96, bottom=0.073, left=0.064, right=0.995, hspace=hGap, wspace=wGap)
 fig.suptitle('Genomic position (\u00D710 Mb)', y=0.002, ha='center', va='bottom')
-fig.text(0.001, 0.995, 'A', weight='bold', ha='left', va='top')
-fig.text(0.001, 0.435, 'B', weight='bold', ha='left', va='bottom')
+fig.text(0.001, 0.995, 'a', weight='bold', ha='left', va='top')
+fig.text(0.001, 0.435, 'b', weight='bold', ha='left', va='bottom')
 
 fig.savefig(os.path.join(results, 'PyBSASeq.pdf'))
 # fig.savefig(os.path.join(results, 'PyBSASeq.png'), dpi=600)
 
-misc.append(['Running time', [(time.time()-t0)/3600]])
+peaklst = pkList(snpRegion)
+
+if additionalPeaks.lower() == 'yes':
+    with open(os.path.join(path, 'additionalPeaks.txt'), 'r') as inF:
+        for line in inF:
+            if not line.startswith('#'):
+                a = line.rstrip().split()
+
+                additionalSW = swDataFrame[(swDataFrame.CHROM==a[0]) & (swDataFrame.sw_Str >= int(a[1])) & (swDataFrame.sw_Str <= int(a[2]))]
+                peakSW = additionalSW[additionalSW[r'sSNP/totalSNP'] == additionalSW[r'sSNP/totalSNP'].max()]
+
+                for row in peakSW.itertuples():
+                    peaklst.append([row.CHROM, row.sw_Str])
+
+peaklst = sorted(peaklst, key = lambda x: (int(x[0]), int(x[1])))
+
+try:
+    accurateThreshold_sw(peaklst)
+    print(f'Peak verification completed, time elapsed: {(time.time()-t0)/60} minutes')
+except NameError:
+    accurateThreshold_gw(peaklst)
+    print('Please install the module \'Fisher\' if more precise thresholds of the QTL loci are desired')
+
+misc.append(['Running time', [(time.time()-t0)/60]])
 
 with open(os.path.join(results, 'misc_info.csv'), 'w', newline='') as outF:
     xie = csv.writer(outF)
     xie.writerows(misc)
+
+print('\nIf two or more peaks and all the values in between are greater than the threshold, these peaks would be recognized as a single peak. You can rerun the script if additional peaks are desired to be identified, a file \'additionalPeaks.txt\' (template provided) cotaining the chromosome ID and the range info (start and end) of the interested regions needs to be created in the working directory.\n')
