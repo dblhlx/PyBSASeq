@@ -327,12 +327,12 @@ def bsaseqPlot(chrmIDL, datafr, datafrT):
             replaceZero(yRatio)
 
         pIndex = 0
-        while swDict[i][pIndex][1] == 'empty':
+        while swDict[i][pIndex][6] == 'empty':
             pIndex += 1
 
         j = 0
         while j < pIndex:
-            swDict[i][j][1] = swDict[i][pIndex][1]
+            swDict[i][j][6] = swDict[i][pIndex][6]
             j += 1
 
         # Data smoothing
