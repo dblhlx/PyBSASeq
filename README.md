@@ -19,14 +19,13 @@ Here are the details of the options used in the script:
 
 The default cutoff p-value for identifying ltaSNPs from the SNP dataset is 0.01 (alpha), and the default cutoff p-value for identifying ltaSNPs from the simulated dataset is 0.1 (smalpha). These values can be changed using the following options:
 
-`--alpha p1 --smalpha p2`
+`-v alpha,smalpha`
 
-p1 and p2 should be in the range of 0.0 – 1.0, the chosen value should make statistical sense. The greater the p2 value, the higher the threshold and the lower the false positive rate.
+alpha and smalpha should be in the range of 0.0 – 1.0, the chosen value should make statistical sense. The greater the smalpha value, the higher the threshold and the lower the false positive rate.
 
 The default size of the sliding window is 2000000 (base pairs) and the incremental step is 10000 (base pairs), and their values can be changed using the following option:
 
-`--swsize slidingWindowSize`
-`--step incrementalStep`
+`-s slidingWindowSize,incrementalStep`
 
 #### Workflow
 1. SNP filtering
