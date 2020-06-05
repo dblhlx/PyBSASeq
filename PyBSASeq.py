@@ -392,7 +392,7 @@ def bsaseqPlot(chrmIDL, datafr):
                 # zeroSNP(fb_ZRatio)
                 # zeroSNP(sb_ZRatio)
                 zeroSNP(y5)
-                print(i, y5[0])
+                # print(chrmID, y5[0])
                 zeroSNP(y6)
                 zeroSNP(y7)
                 zeroSNP(y8)

@@ -1,0 +1,12 @@
+Header,"['CHROM', 'POS', 'REF', 'ALT', 'QUAL', '834927.GT', '834927.AD', '834927.GQ', '834931.GT', '834931.AD', '834931.GQ', 'ChrmSortID']"
+Bulk ID,"['834927', '834931']"
+Number of SNPs in the entire dataframe,40000
+Chromosome ID,"['2', '3', '4']"
+Chromosome sizes,"[10354483, 11429307, 5104831]"
+Number of SNPs after drop of SNPs with calculation-generated NA value,28822
+Dataframe filtered with genotype quality scores,28822
+Average SNPs per sliding window,2143
+Average locus depth in bulk 834927,54.72743043508431
+Average locus depth in bulk 834931,60.84411213656235
+List of the peaks of the chromosomes,"[0.5463458110516934, 0.2476303317535545, 0.1111111111111111]"
+Running time,[2.4621153275171914]
