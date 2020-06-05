@@ -701,10 +701,10 @@ fb_Freq = smAlleleFreq(popStr, fb_Size, rep)
 sb_Freq = smAlleleFreq(popStr, sb_Size, rep)
 
 path = os.getcwd()
-inFile, oiFile = os.path.join(path, args.input), os.path.join(path, 'snp_fagz.csv')
+inFile, oiFile = os.path.join(path, args.input), os.path.join(path, 'Results', 'snp_fagz.csv')
 currentDT = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 results = os.path.join(path, 'Results', currentDT)
-filteringPath = os.path.join(path, 'FilteredSNPs')
+filteringPath = os.path.join(path, 'Results', 'FilteredSNPs')
 
 if not os.path.exists(results):
     os.makedirs(results)
@@ -878,7 +878,7 @@ fb_AF_CI, sb_AF_CI = fbID+'.AF_CI', sbID+'.AF_CI'
 fb_AF_CI0995, sb_AF_CI0995 = fb_AF_CI+'0995', sb_AF_CI+'0995'
 fb_AF_CI0005, sb_AF_CI0005 = fb_AF_CI+'0005', sb_AF_CI+'0005'
 
-if os.path.isfile(os.path.join(path, 'COMPLETE.txt')) == False:
+if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
     bsaSNPs = snpFiltering(snpRawDF)
 
     # Remove low LD SNPs to meet the z-test sample size requirment
@@ -965,7 +965,7 @@ if os.path.isfile(os.path.join(path, 'COMPLETE.txt')) == False:
 
     bsaSNPs.to_csv(oiFile, index=None)
 
-    with open(os.path.join(path, 'COMPLETE.txt'), 'w') as xie:
+    with open(os.path.join(path, 'Results', 'COMPLETE.txt'), 'w') as xie:
         xie.write('Statistical calculation is completed!')
 else:
     additionalPeaks = input('Do you want to have additional peaks identified (yes or no)?\n')
@@ -999,13 +999,13 @@ misc.append([f'Average locus depth in bulk {fbID}', bsaSNPs[fb_LD].mean()])
 misc.append([f'Average locus depth in bulk {sbID}', bsaSNPs[sb_LD].mean()])
 
 # Calculate or retrieve the threshold. The threshoslds are normally in the range from 0.12 to 0.12666668
-if os.path.isfile(os.path.join(path, 'threshold.txt')) == False:
+if os.path.isfile(os.path.join(path, 'Results', 'threshold.txt')) == False:
     if 'fisher' in sys.modules:
         thrshld = smThresholds_gw(bsaSNPs)[1]
     else:
         thrshld = smThresholds_proximal(bsaSNPs)[1]
 
-    with open(os.path.join(path, 'threshold.txt'), 'w') as xie:
+    with open(os.path.join(path, 'Results', 'threshold.txt'), 'w') as xie:
         xie.write(str(thrshld))
 else:
     with open(os.path.join(path, 'threshold.txt'), 'r') as du:
