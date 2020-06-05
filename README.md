@@ -18,7 +18,7 @@ Here are the details of the options used in the script:
 - fbsize – the number of individuals in the first bulk
 - sbsize – the number of individuals in the second bulk
 
-The default cutoff p-value for identifying ltaSNPs from the SNP dataset is 0.01 (alpha), and the default cutoff p-value for identifying ltaSNPs from the simulated dataset is 0.1 (smalpha). These values can be changed using the following options:
+The default cutoff p-value for identifying significant SNPs (sSNP) from the SNP dataset is 0.01 (alpha), and the default cutoff p-value for identifying sSNPs from the simulated dataset is 0.1 (smalpha). These values can be changed using the following options:
 
 `-v alpha,smalpha`
 
@@ -30,7 +30,7 @@ The default size of the sliding window is 2000000 (base pairs) and the increment
 
 #### Workflow
 1. SNP filtering
-2. Perform Fisher's exact test using the AD values of each SNP in both bulks. A SNP would be identified as a significant SNP (sSNP) if its p-value is less than alpha. In the meantime, simulated REF/ALT reads of each SNP is obtained via simulation under null hypothesis, and Fisher's exact test is also performed using these simulated AD values; for each SNP, it would be a sSNP if its p-value is less than smalpha. Identification of sSNPs from the simulated dataset is for threshold calculation. A file named "COMPLETE.txt" will be writen to the working directory if Fisher's exact test is successful, and the results of Fisher's exact test are saved in a .csv file. The "COMPLETE.txt" file needs to be deleted in case starting over is desired. 
+2. Perform Fisher's exact test using the AD values of each SNP in both bulks. A SNP would be identified as an sSNP if its p-value is less than alpha. In the meantime, simulated REF/ALT reads of each SNP is obtained via simulation under null hypothesis, and Fisher's exact test is also performed using these simulated AD values; for each SNP, it would be an sSNP if its p-value is less than smalpha. Identification of sSNPs from the simulated dataset is for threshold calculation. A file named "COMPLETE.txt" will be writen to the working directory if Fisher's exact test is successful, and the results of Fisher's exact test are saved in a .csv file. The "COMPLETE.txt" file needs to be deleted in case starting over is desired. 
 3. Threshold calculation. The result is saved in the "threshold.txt" file. The "threshold.txt" file needs to be deleted if starting over is desired (e.g, if the size of the sliding window is changed).
 4. Plotting.
 
