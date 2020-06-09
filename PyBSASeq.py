@@ -1008,7 +1008,7 @@ if os.path.isfile(os.path.join(path, 'Results', 'threshold.txt')) == False:
     with open(os.path.join(path, 'Results', 'threshold.txt'), 'w') as xie:
         xie.write(str(thrshld))
 else:
-    with open(os.path.join(path, 'threshold.txt'), 'r') as du:
+    with open(os.path.join(path, 'Results', 'threshold.txt'), 'r') as du:
         thrshld = float(du.readline().strip())
 
 # Identify likely trait-associated SNPs
