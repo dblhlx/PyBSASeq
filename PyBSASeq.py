@@ -934,7 +934,7 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
 
     except ImportError:
         from scipy.stats import fisher_exact
-        print('Looks like the module \'Fisher\' (https://github.com/brentp/fishers_exact_test) is not installed on your computer. It would take much shorter time with this module installed.')
+        print('Looks like the module \'Fisher\' (https://github.com/brentp/fishers_exact_test) is not installed on your computer. Running the script would take much shorter time with this module installed.')
         bsaSNPs['STAT'] = bsaSNPs.apply(statisticsFE, axis=1)
 
         # Create new columns for Fisher's exact test results, allele frequency, Δ(allele frequency) confidence intervals, and G-statistic thresholds
