@@ -5,13 +5,15 @@
 ### PyBSASeq
 A novel algorithm for BSA-Seq data analysis
 
-Python 3.6 or above is required to run the script. 
+Python 3.6 or above is required to run the script.
 
 #### Usage
-If only the bulk genomes were sequence: 
+If only the bulk genomes were sequence:
+
 `$ python PyBSASeq.py -i input -o output -p popstrct -b fbsize,sbsize`
 
 If the genomes of both the bulks and the parents were sequenced:
+
 `$ python PyBSASeq_WP.py -i input -o output -p popstrct -b fbsize,sbsize`
 
 Here are the details of the options used in the script:
