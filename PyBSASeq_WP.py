@@ -16,12 +16,10 @@ from scipy.signal import savgol_filter
 
 def smAlleleFreq(popStruc, sizeOfBulk, rep):
     '''
-    This function is for the calculation of the allele frequency in the bulks via simulation
-    under the null hypothesis.
-
-    An AA, Aa, and aa individual carries 0%, 50%, and 100% of the alt (a) allele, respectively.
-    If A/a is not associated with the trait (null hypothesis), the AA:Aa:aa ratios are 0.25:0.5:0.25, 0.5:0:0.5, 
-    and 0.5:0.5:0, repectively, in a F2 population, in a RIL population, and in a back crossed population.
+    An AA/Aa/aa individual carries 0%, 50%, and 100% of the alt (a) allele, respectively.
+    The AA:Aa:aa ratios are 0.25:0.5:0.25, 0.5:0:0.5, and 0.5:0.5:0, repectively, in a F2 
+    population, in a RIL population, and in a back crossed population if A/a does not affect 
+    the trait in the population (null hypothesis)
     '''
     freqL = []
     pop = [0.0, 0.5, 1.0]
@@ -58,9 +56,7 @@ def chrmFiltering(df, chromosomeList):
 
 
 def snpFiltering(df):
-    print('Perform SNP filtering')
-    global misc
-
+    print('Perform SNP filtering for the sequencing data of the', smpl)
     df = df.copy()
 
     # Identify SNPs not informative and remove these SNPs from the dataframe
@@ -73,11 +69,6 @@ def snpFiltering(df):
     df_NA.to_csv(os.path.join(filteringPath, 'na.csv'), index=None)
     df.dropna(inplace=True)
     misc.append(['Number of SNPs after NA drop', len(df.index)])
-
-    # Filter out SNPs with a low genotype quality score
-    df_lowq = df[(df[fb_GQ]<gqValue) | (df[sb_GQ]<gqValue)]
-    df_lowq.to_csv(os.path.join(filteringPath, 'lowqualitySNP.csv'), index=None)
-    df = df.drop(index=df_lowq.index)
 
     # Fiter out 1 bp deletions
     inDel_1 = df[df.ALT.str.contains(r'\*')]
@@ -119,16 +110,14 @@ def snpFiltering(df):
     # Update the AD values of the above SNPs by removing the REF read that is zero (i.e. remove '0,' from '0,x,y')
     df_2ALT_Real[fb_AD] = df_2ALT_Real[fb_AD].str.slice(start=2)
     df_2ALT_Real[sb_AD] = df_2ALT_Real[sb_AD].str.slice(start=2)
-    df_2ALT_Real[['REF', 'ALT']] = df_2ALT_Real['ALT'].str.split(',', expand=True)
+    df_2ALT_Real[['REF', 'ALT']] = df_2ALT_Real.ALT.str.split(',', expand=True)
     df_2ALT_Real.to_csv(os.path.join(filteringPath, '2altReal_After.csv'), index=None)
 
     # Concatenate 1ALT_Real and 2ALT_Real
     snp = pd.concat([df_1ALT_Real, df_2ALT_Real])
 
-    # Identify inDels, REF/Alt allele with more than 1 base
-    inDel_2 = snp[(snp.REF.str.len()>1) | (snp.ALT.str.len()>1)]
-
     # Remove InDels from the SNP dataframe
+    inDel_2 = snp[(snp.REF.str.len()>1) | (snp.ALT.str.len()>1)]
     snp = snp.drop(index=inDel_2.index)
 
     df_InDel = pd.concat([inDel_1, inDel_2])
@@ -162,33 +151,20 @@ def snpFiltering(df):
     gt.to_csv(os.path.join(filteringPath, 'gt.csv'), index=None)
     snp = snp.drop(index=gt.index)
 
-    # A SNP with very high LD is likily from the repetitive genomic sequence
-    # Remove SNPs that could be from the repetitive elements
-    fb_repLD, sb_repLD = hiReadFold * snp[fb_LD].mean(), hiReadFold * snp[sb_LD].mean() 
-    snpRep = snp[(snp[fb_LD]>fb_repLD) | (snp[sb_LD]>sb_repLD)]
-    snpRep.to_csv(os.path.join(filteringPath, 'repetitiveSeq_WoP.csv'), index=None)
-    snp = snp.drop(index=snpRep.index)
-
     print(f'SNP filtering completed, time elapsed: {(time.time()-t0)/60} minutes.')
 
     return snp
 
 
 def gStatistic_Array(o1, o3, o2, o4):
-    '''
-    Calculate G-statistc using numpy arrays as input
-    o1 - o4 are 4 numpy arrays of observed values that are greater than or equal to zero
-    '''
-    # Ignore errors caused by 'Divide by zero' or logarithm of zero, let numpy.where to handle these situations
+    # Calculate G-statistc using numpy array input
     np.seterr(all='ignore')
 
-    # Calculate the expected values under the null hypothesis
     e1 = np.where(o1+o2+o3+o4!=0, (o1+o2)*(o1+o3)/(o1+o2+o3+o4), 0)
     e2 = np.where(o1+o2+o3+o4!=0, (o1+o2)*(o2+o4)/(o1+o2+o3+o4), 0)
     e3 = np.where(o1+o2+o3+o4!=0, (o3+o4)*(o1+o3)/(o1+o2+o3+o4), 0)
     e4 = np.where(o1+o2+o3+o4!=0, (o3+o4)*(o2+o4)/(o1+o2+o3+o4), 0)
 
-    # Calculate the log-likelihood ratios
     llr1 = np.where(o1/e1>0, 2*o1*np.log(o1/e1), 0.0)
     llr2 = np.where(o2/e2>0, 2*o2*np.log(o2/e2), 0.0)
     llr3 = np.where(o3/e3>0, 2*o3*np.log(o3/e3), 0.0)
@@ -198,12 +174,7 @@ def gStatistic_Array(o1, o3, o2, o4):
 
 
 def statisticsFE(row):
-    '''
-    Perform Fisher's exact test for each SNP in the dataset using its actual AD values in both bulks, 
-    and perform Fisher's exact test and estimate the thresholds of Δ(allele frequency) and G-statistic 
-    value using its simulated AD values.
-    This function will be used if the module 'Fisher' is not installed. It is slow for large dataset.
-    '''
+    # Perform Fisher's exact test for each SNP using the actual REF/ALT reads
     try:
         fe = fisher_exact([[row[fb_AD_REF], row[fb_AD_ALT]], [row[sb_AD_REF], row[sb_AD_ALT]]])
     except TypeError:
@@ -215,22 +186,22 @@ def statisticsFE(row):
     except TypeError:
         sm_FE = ('NA', 'NA')
 
-    # Create an array with 10000 (rep) simulated ALT reads - first bulk
+    # Create an array with 10000 (rep) simulated ALT reads of a SNP - first bulk
     sm_yb_Alt_Array = np.random.binomial(row[fb_LD], fb_Freq, rep)
     yb_LD_Array = np.full(rep, row[fb_LD])
-    # Create an array with 10000 (rep) simulated ALT reads - second bulk
+    # Create an array with 10000 (rep) simulated ALT reads of a SNP - second bulk
     sm_eb_Alt_Array = np.random.binomial(row[sb_LD], sb_Freq, rep)
     eb_LD_Array = np.full(rep, row[sb_LD])
 
-    # Create arraies of allele frequencys and Δ(allele frequency)
+    # Create arraies of SNP indices and Δ(allele frequency) of a SNP
     sm_yb_AF_Array = sm_yb_Alt_Array/yb_LD_Array
     sm_eb_AF_Array = sm_eb_Alt_Array/eb_LD_Array
     sm_DAF_Array = sm_eb_AF_Array - sm_yb_AF_Array
 
-    # Create a G-statistic array
+    # Create a G-statistic array of a SNP
     sm_GS_Array = gStatistic_Array(sm_yb_Alt_Array, yb_LD_Array-sm_yb_Alt_Array, sm_eb_Alt_Array, eb_LD_Array-sm_eb_Alt_Array)
 
-    # Obtain the percentile of the above arraies for threshold estimation
+    # Obtain the percentile of the above arraies
     ci_yb_AF = np.percentile(sm_yb_AF_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
     ci_eb_AF = np.percentile(sm_eb_AF_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
     ci_DAF = np.percentile(sm_DAF_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
@@ -240,11 +211,6 @@ def statisticsFE(row):
 
 
 def statistics(row):
-    '''
-    Estimate the thresholds of Δ(allele frequency) and G-statistic value using its simulated AD values 
-    for each SNP in the dataset.
-    This function will be used if the module 'Fisher' is avaiable.
-    '''
     # Create an array with 10000 (rep) simulated ALT reads of a SNP - first bulk
     sm_yb_Alt_Array = np.random.binomial(row[fb_LD], fb_Freq, rep)
     yb_LD_Array = np.full(rep, row[fb_LD])
@@ -252,7 +218,7 @@ def statistics(row):
     sm_eb_Alt_Array = np.random.binomial(row[sb_LD], sb_Freq, rep)
     eb_LD_Array = np.full(rep, row[sb_LD])
 
-    # Create arraies of SNP indices and Δ(allele frequency)
+    # Create arraies of SNP indices and Δ(allele frequency) of a SNP
     sm_yb_AF_Array = sm_yb_Alt_Array/yb_LD_Array
     sm_eb_AF_Array = sm_eb_Alt_Array/eb_LD_Array
     sm_DAF_Array = sm_eb_AF_Array - sm_yb_AF_Array
@@ -270,14 +236,13 @@ def statistics(row):
 
 
 def smThresholds_proximal(DF):
-    # Calculate the sSNP/totalSNP threshold via re-sampling if 'Fisher' is not installed
+    # Using this function for the calculation of the threshold if 'fisher' is not available
     print('Calculate the threshold of sSNPs/totalSNPs.')
-    ratioLi = []        # List containing simulated sSNP/totalSNP ratios
+    ratioLi = []
     for __ in range(rep):
-        # Sample the nmbber of SNPs equal to the average number of SNPs per sliding window
         sm_SNP_SMPL = DF.sample(snpPerSW, replace=True)
-        # Identify sSNPs in the above SNP subset based on the simulated AD values
         sm_sSNP_SMPL = sm_SNP_SMPL[sm_SNP_SMPL['sm_FE_P']<smAlpha]
+
         ratioLi.append(len(sm_sSNP_SMPL.index)/snpPerSW)
 
     misc.append(['Genome-wide sSNP/totalSNP ratio threshold', np.percentile(ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])])
@@ -287,29 +252,22 @@ def smThresholds_proximal(DF):
 
 
 def smThresholds_gw(DF):
-    # Calculate the genome-wide sSNP/totalSNP threshold if 'Fisher' is avaiable
+    # For the calculation of the genome-wide threshold
     print('Calculate the threshold of sSNPs/totalSNPs.')
-    gw_ratioLi = []     # List containing simulated sSNP/totalSNP ratios
+    gw_ratioLi = []
     for __ in range(rep):
-        # Sample the nmbber of SNPs equal to the average number of SNPs per sliding window
         sm_SNP_SMPL = DF.sample(snpPerSW, replace=True)
-        # Convert the LD columns of the above SNP subset to arrays
-        gw_sm_fb_LD_Arr = sm_SNP_SMPL[fb_LD].to_numpy().astype(np.uint)
-        gw_sm_sb_LD_Arr = sm_SNP_SMPL[sb_LD].to_numpy().astype(np.uint)
 
-        # Create arrays containing simulated AD values for the above SNP subset
         gw_sm_fb_AD_ALT_Arr = np.random.binomial(sm_SNP_SMPL[fb_LD], fb_Freq).astype(np.uint)
-        gw_sm_fb_AD_REF_Arr = gw_sm_fb_LD_Arr - gw_sm_fb_AD_ALT_Arr
+        gw_sm_fb_AD_REF_Arr = sm_SNP_SMPL[fb_LD].to_numpy().astype(np.uint) - gw_sm_fb_AD_ALT_Arr
         gw_sm_sb_AD_ALT_Arr = np.random.binomial(sm_SNP_SMPL[sb_LD], sb_Freq).astype(np.uint)
-        gw_sm_sb_AD_REF_Arr = gw_sm_sb_LD_Arr - gw_sm_sb_AD_ALT_Arr
+        gw_sm_sb_AD_REF_Arr = sm_SNP_SMPL[sb_LD].to_numpy().astype(np.uint) - gw_sm_sb_AD_ALT_Arr
 
-        # Calculate the P-value of each SNP using the simulated AD values
         __, __, gw_sm_FE_P_Arr = pvalue_npy(gw_sm_fb_AD_ALT_Arr, gw_sm_fb_AD_REF_Arr, gw_sm_sb_AD_ALT_Arr, gw_sm_sb_AD_REF_Arr)
         # gw_sm_FE_OR_Arr = (gw_sm_fb_AD_ALT_Arr * gw_sm_sb_AD_REF_Arr) / (gw_sm_fb_AD_REF_Arr * gw_sm_sb_AD_ALT_Arr)
 
-        # Based on the above P-value array, create an array in which the sSNP has value 1 while the non-sSNP has value 0, 
-        # and its mean is the simulated sSNP/totalSNP ratio of the above SNP subset
         sSNP_Arr = np.where(gw_sm_FE_P_Arr<smAlpha, 1, 0)
+
         gw_ratioLi.append(np.mean(sSNP_Arr))
 
     misc.append(['Genome-wide sSNP/totalSNP ratio threshold', np.percentile(gw_ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])])
@@ -318,27 +276,26 @@ def smThresholds_gw(DF):
     return np.percentile(gw_ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
 
 
-def smThresholds_sw(DF):
-    # Calculate the sliding window-specific threshold
-    sw_ratioLi = []     # List containing simulated sSNP/totalSNP ratios
+def smThresholds_sw(df):
+    # For the calculation of the sliding window-specific sSNP/totalSNP threshold
+    sw_ratioLi = []
 
-    # Convert the LD columns of the sliding window to arrays
-    sw_fb_LD_Arr = DF[fb_LD].to_numpy().astype(np.uint)
-    sw_sb_LD_Arr = DF[sb_LD].to_numpy().astype(np.uint)
+    # Convert the LD column to a numpy array
+    sw_fb_LD_Arr = df[fb_LD].to_numpy().astype(np.uint)
+    sw_sb_LD_Arr = df[sb_LD].to_numpy().astype(np.uint)
 
     for __ in range(rep):
-        # Create arrays containing simulated AD values for the sliding window
-        sw_sm_fb_AD_ALT_Arr = np.random.binomial(DF[fb_LD], fb_Freq).astype(np.uint)
+        # Create new columns with simulated AD values based on the LD values
+        sw_sm_fb_AD_ALT_Arr = np.random.binomial(df[fb_LD], fb_Freq).astype(np.uint)
         sw_sm_fb_AD_REF_Arr = sw_fb_LD_Arr - sw_sm_fb_AD_ALT_Arr
-        sw_sm_sb_AD_ALT_Arr = np.random.binomial(DF[sb_LD], sb_Freq).astype(np.uint)
+        sw_sm_sb_AD_ALT_Arr = np.random.binomial(df[sb_LD], sb_Freq).astype(np.uint)
         sw_sm_sb_AD_REF_Arr = sw_sb_LD_Arr - sw_sm_sb_AD_ALT_Arr
 
-        # Calculate the P-value of each SNP using the simulated AD values
+        # Calculate the P-value via Fisher's Exact test
         __, __, sw_sm_FE_P_Arr = pvalue_npy(sw_sm_fb_AD_ALT_Arr, sw_sm_fb_AD_REF_Arr, sw_sm_sb_AD_ALT_Arr, sw_sm_sb_AD_REF_Arr)
+        # # Calculate the odd ratio, not needed for BSA-Seq analysis
         # sw_sm_FE_OR_Arr = (sw_sm_fb_AD_ALT_Arr * sw_sm_sb_AD_REF_Arr) / (sw_sm_fb_AD_REF_Arr * sw_sm_sb_AD_ALT_Arr)
 
-        # Based on the above P-value array, create an array in which the sSNP has value 1 while the non-sSNP has value 0, 
-        # and its mean is the simulated sSNP/totalSNP ratio of the sliding window
         sSNP_Arr = np.where(sw_sm_FE_P_Arr<smAlpha, 1, 0)
 
         sw_ratioLi.append(np.mean(sSNP_Arr))
@@ -347,23 +304,19 @@ def smThresholds_sw(DF):
 
 
 def zeroSNP(li):
-    # Replace 'divide by zero' with the nearnest value. 'li' is a list
+    # Replace 'divide by zero' with the nearnest value.
     if li != []:
-        # Assign the previous value to the empty sliding window if the list is not empty
-        li.append(li[-1])
+        li.append(li[-1])   # Assign the previous value to the empty sliding window if the list is not empty
     else:
-        # Assign 'empty' to the first sliding window that is empty
-        li.append('empty')  
+        li.append('empty')  # Assign 'empty' to the first sliding windows that is empty
 
 
 def replaceZero(li):
     # Replace the 'empty' placeholders at the begining of the list with the nearnest non-empty value
-    # Find the first non-empty value
     i = 0
     while li[i]=='empty':
         i += 1
 
-    # Replace the 'empty' value(s) in the list with the above non-empty value
     j = 0
     while j < i:
         li[j] = li[i]
@@ -414,7 +367,7 @@ def bsaseqPlot(chrmIDL, datafr):
 
         # Calculate, sSNP/totalSNP, G-statistic, and Δ(allele frequency) of a sliding window
         while swEnd <= regEnd:
-            # swDF: Dataframe containing the sliding window
+            # swDF: sSNPs in a sliding window; swDFT: all SNPs in a sliding window
             swDF = ch[(ch.POS>=swStr) & (ch.POS<=swEnd)]
 
             rowInSwDF = len(swDF.index)       # number of SNPs in a sliding window
@@ -649,7 +602,7 @@ def bsaseqPlot(chrmIDL, datafr):
     swDataFrame = pd.DataFrame(swRows, columns=['CHROM', 'sw_Str', fbID+'.AvgLD', sbID+'.AvgLD', 'sSNP', 'toatalSNP', r'sSNP/totalSNP', 'GS', 'GS_CI0995', 'Delta_AF', 'DAF_CI0005', 'DAF_CI0995'])
     swDataFrame['smthedRatio'] = sg_yRatio_List
 
-    swDataFrame.to_csv(os.path.join(results, 'slidingWindows_WoP.csv'), index=False)
+    swDataFrame.to_csv(os.path.join(results, 'slidingWindows_WP.csv'), index=False)
 
     misc.append(['List of the peaks of the chromosomes', ratioPeakL])
 
@@ -659,7 +612,7 @@ def bsaseqPlot(chrmIDL, datafr):
         xie1.writerow(['Type', 'Chr', 'Position', 'Warning Message'])
         xie1.writerows(wmL)
 
-    numOfSNPOnChrFile = os.path.join(results, 'numOfSNPOnChrFile_WoP.csv')
+    numOfSNPOnChrFile = os.path.join(results, 'numOfSNPOnChrFile_WP.csv')
     with open(numOfSNPOnChrFile, 'w', newline='') as outF2:
         xie2 = csv.writer(outF2)
         xie2.writerow(['Chromosome', 'Num of sSNPs', 'Num of totalSNPs', r'sSNP/totalSNP'])
@@ -677,7 +630,6 @@ def peak(l):
 
 
 def pkList(l):
-    # l: genomic regions above the threshold identified in the plot function
     peakList = []
     for subL in l:
         if subL[3] != [] and subL[4] > 10:
@@ -729,10 +681,9 @@ plt.rc('legend', fontsize=20)               # legend fontsize
 plt.rc('figure', titlesize=22)              # fontsize of the figure title
 # plt.tick_params(labelsize=20)
 
-# Construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
-ap.add_argument('-i', '--input', required=False, help='file name of the GATK4-generated tsv file', default='snp100SE.tsv')
-ap.add_argument('-o', '--output', required=False, help='file name of the output csv file', default='BSASeq_WoP.csv')
+ap.add_argument('-i', '--input', required=False, help='file names of the GATK4-generated tsv files: parental, bulk', type=lambda s: [t for t in s.split(',')], default='parental.tsv,bulk.tsv')
+ap.add_argument('-o', '--output', required=False, help='file name of the output csv file', default='BSASeq_WP.csv')
 ap.add_argument('-b', '--bulksizes', required=False, help='bulk sizes: first_bulk,second_bulk', type=lambda s: [int(t) for t in s.split(',')], default='430,385')
 ap.add_argument('-p', '--popstrct', required=False, choices=['F2','RIL','BC'], help='population structure', default='F2')
 ap.add_argument('-v', '--pvalues', required=False, help='cutoff p-values: real_data,simulation', type=lambda s: [float(t) for t in s.split(',')], default='0.01,0.1')
@@ -742,10 +693,10 @@ ap.add_argument('-g', '--gaps', required=False, help='gaps between subplots: hor
 ap.add_argument('-m', '--smoothing', required=False, help='smoothing parameters: window_len,polyorder', type=lambda s: [int(t) for t in s.split(',')], default='51,3')
 ap.add_argument('--smooth', type=bool, required=False, help='smooth the plot', default=False)
 ap.add_argument('-e', '--region', required=False, help='interested region(s): chrm,start,end', type=lambda s: [int(t) for t in s.split(',')], default='-1')
-ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SNPs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,6,-1')
+ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimumu SNPs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,6,1')
 
 args = ap.parse_args()
-
+inputFiles = args.input
 popStr = args.popstrct
 rep = args.replication
 fb_Size, sb_Size = args.bulksizes[0], args.bulksizes[1]
@@ -759,202 +710,268 @@ gqValue, minSNPs, hiReadFold, mrIndex = args.misc[0], args.misc[1], args.misc[2]
 minFragSize = swSize + smthWL * incrementalStep     # Minimum chromosome size allowed
 additionalPeaks = ''
 
-# Obtain the ALT allele frequencies in both bulks under the null hopythoesis
+path = os.getcwd()
+samples = ['parents', 'bulks']
+
+# Obtain the frequencies of the ALT allele in both bulks
 fb_Freq = smAlleleFreq(popStr, fb_Size, rep)
 sb_Freq = smAlleleFreq(popStr, sb_Size, rep)
 
 # Set paths for input/output files
-path = os.getcwd()
-inFile, oiFile = os.path.join(path, args.input), os.path.join(path, 'Results', 'snp_fagz_WoP.csv')
+oiFile = os.path.join(path, 'Results', 'snp_fagz_WP.csv')
 currentDT = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 results = os.path.join(path, 'Results', currentDT)
-filteringPath = os.path.join(path, 'Results', 'FilteredSNPs')
+# filteringPath = os.path.join(path, 'FilteredSNPs')
 
-# Create folders if not exist
 if not os.path.exists(results):
     os.makedirs(results)
 
-if not os.path.exists(filteringPath):
-    os.makedirs(filteringPath)
+chrmIDL = None
 
-if inFile.endswith('.tsv'):
-    separator = '\t'
-elif inFile.endswith('.csv'):
-    separator = ','
+m = 0
+for smpl in samples:
+    inFile = os.path.join(path, inputFiles[m])
+    filteringPath = os.path.join(path, 'FilteredSNPs', smpl)
 
-# Generte a SNP dataframe from the GATK4-generated tsv file
-snpRawDF = pd.read_csv(inFile, delimiter=separator, encoding='utf-8', dtype={'CHROM':str})
+    if inFile.endswith('.tsv'):
+        separator = '\t'
+    elif inFile.endswith('.csv'):
+        separator = ','
 
-# Create a chromosome list, which can be very long because of the unmapped fragments
-chrmRawList = snpRawDF['CHROM'].unique().tolist()
+    if not os.path.exists(filteringPath):
+        os.makedirs(filteringPath)
 
-# Filter out chromosomes and unmapped fragments smaller than the sliding window
-# Make the chromosome list more readable and meaningful
-chrmCheck = chrmFiltering(snpRawDF, chrmRawList)
-chrmSizeDict = chrmCheck[0]
-chrmList = chrmCheck[1]
-smallFrags = chrmCheck[2]
+    # Generte a SNP dataframe from the GATK4-generated tsv file
+    snpRawDF = pd.read_csv(inFile, delimiter=separator, encoding='utf-8', dtype={'CHROM':str})
 
-# Print the chromosome list on the screen to let the user to select desired chromosome(s)
-rightInput = ''
-if region[0] == -1:
-    if smallFrags != []:
-        print('\nThe chromosomes/fragments below are filtered out because of their small sizes:')
-        print(smallFrags, '\n')
+    # Create a chromosome list, which can be very long because of the unmapped fragments
+    chrmRawList = snpRawDF['CHROM'].unique().tolist()
 
-    print(f'The chromosomes below are greater than {minFragSize} bp and are suitable for BSA-Seq analysis:')
-    print(chrmList,'\n')
-    print('Although a subset of the above chromosomes can be selected for analysis in next step, it is strongly recommended to have all the chromosomes included when run the script the first time.\n')
+    # Filter out chromosomes and unmapped fragments smaller than the sliding window
+    # Make the chromosome list more readable and meaningful
+    chrmCheck = chrmFiltering(snpRawDF, chrmRawList)
+    chrmSizeDict = chrmCheck[0]
+    chrmList = chrmCheck[1]
+    smallFrags = chrmCheck[2]
 
-    while rightInput.lower() != 'yes':
-        inputString = input('Enter the names of the desired chromosomes IN ORDER and separate each name with a comma or press the ENTER/RETURN key if the above list is what you want:\n')
-        if inputString == '':
-            chrmIDL = chrmList
+    # Display the chromosome list on the screen to let the user to select desired chromosome(s)
+    rightInput = ''
+    if chrmIDL == None:
+        if region[0] == -1:
+            if smallFrags != []:
+                print('\nThe chromosomes/fragments below are filtered out because of their small sizes:')
+                print(smallFrags, '\n')
+
+            print(f'The chromosomes below are greater than {minFragSize} bp and are suitable for BSA-Seq analysis:')
+            print(chrmList,'\n')
+            print('Although a subset of the above chromosomes can be selected for analysis in next step, it is strongly recommended to have all the chromosomes included when running the script the first time.\n')
+
+            while rightInput.lower() != 'yes':
+                inputString = input('Enter the names of the desired chromosomes in order and separate each name with a comma or press the ENTER/RETURN key if the above list is what you want:\n')
+                if inputString == '':
+                    chrmIDL = chrmList
+                else:
+                    chrmIDL = [x.strip() for x in inputString.split(',')]
+
+                print('Invalid chromsome names, if any, will be removed.\n')
+
+                # Filter out possible invalid chromosome name(s)
+                invalidChrmL = []
+                for ch in chrmIDL:
+                    if ch not in chrmList:
+                        invalidChrmL.append(ch)
+
+                if invalidChrmL != []:
+                    print('These chrmosome names are invalid:', invalidChrmL,'\n')
+
+                for ch in invalidChrmL:
+                    chrmIDL.remove(ch)
+
+                print('Sorted chromosome list:')
+                print(chrmIDL,'\n')
+
+                rightInput = input('Are the chromosome names in the above list in the right order (yes or no)?\n')
+                print('\n')
+
+            # Create dictionary/list containing the sizes of all the chromosomes
+            chrmSzD, chrmSzL = {}, []
+            for ch in chrmIDL:
+                chrmSzD[ch] = chrmSizeDict[ch]
+                chrmSzL.append(chrmSizeDict[ch][1])
+
+        # Handle the cases in which interested chromosomal regions are entered
         else:
-            chrmIDL = [x.strip() for x in inputString.split(',')]
+            chrmSzD, chrmIDL, chrmSzL = {}, [], []
 
-        print('Invalid chromsome names, if any, will be removed.\n')
+            l, n = len(region), len(region) % 3
+            if n != 0:
+                region = region[0:l-n]
+                print('Each chromosome name should be followsed by the starting and ending points of the interested region.')
 
-        # Filter out possible invalid chromosome name(s)
-        invalidChrmL = []
-        for ch in chrmIDL:
-            if ch not in chrmList:
-                invalidChrmL.append(ch)
+            i = 0
+            while i < len(region):
+                if region[i] == 1000:
+                    chID = 'X'
+                elif region[i] == 1001:
+                    chID = 'Y'
+                elif region[i] == 1002:
+                    chID = 'Z'
+                elif region[i] == 1003:
+                    chID = 'W'
+                elif region[i] == 1004:
+                    chID = 'U'
+                elif region[i] == 1005:
+                    chID = 'V'
+                else:
+                    chID = str(region[i])
 
-        if invalidChrmL != []:
-            print('These chrmosome names are invalid:', invalidChrmL,'\n')
+                if chID not in chrmList:
+                    print(chID, 'is not a valid chromosome name.')
+                else:
+                    if region[i+1] < 1:
+                        region[i+1] = 1
+                    if region[i+2] > chrmSizeDict[chID][1]:
+                        region[i+2] = chrmSizeDict[chID][1]
 
-        for ch in invalidChrmL:
-            chrmIDL.remove(ch)
+                    if region[i+2] - region[i+1] > minFragSize:
+                        chrmSzD[chID] = [region[i+1], region[i+2]]
+                        chrmIDL.append(chID)
+                        chrmSzL.append(region[i+2]-region[i+1])
+                    else:
+                        print(f'The size of the interested region on chromosome {chID} should be greater than ', minFragSize, 'bp.')
 
-        print('Sorted chromosome list:')
-        print(chrmIDL,'\n')
+                i += 3
 
-        rightInput = input('Are the chromosome names in the above list in the right order (yes or no)?\n')
-        print('\n')
+    if chrmIDL == []:
+        print('No valid chromosome names were entered.')
+        sys.exit()
 
-    # Create dictionary/list containing the sizes of all the chromosomes
-    chrmSzD, chrmSzL = {}, []
-    for ch in chrmIDL:
-        chrmSzD[ch] = chrmSizeDict[ch]
-        chrmSzL.append(chrmSizeDict[ch][1])
+    # Create a numeric ID for each chromosome, which can be used to sort the dataframe numerically by chromosome number
+    chrmDict = {}
 
-# Handle the cases in which a chromosomal region is entered
-else:
-    chrmSzD, chrmIDL, chrmSzL = {}, [], []
+    for i in range(1, len(chrmIDL)+1):
+        chrmDict[chrmIDL[i-1]] = i
 
-    l, n = len(region), len(region) % 3
-    if n != 0:
-        region = region[0:l-n]
-        print('Each chromosome name should be followsed by the starting and ending points of the interested region.')
+    snpRawDF['ChrmSortID'] = snpRawDF['CHROM']
+    snpRawDF['ChrmSortID'].replace(chrmDict, inplace=True)
 
-    i = 0
-    while i < len(region):
-        if region[i] == 1000:
-            chID = 'X'
-        elif region[i] == 1001:
-            chID = 'Y'
-        elif region[i] == 1002:
-            chID = 'Z'
-        elif region[i] == 1003:
-            chID = 'W'
-        elif region[i] == 1004:
-            chID = 'U'
-        elif region[i] == 1005:
-            chID = 'V'
+    header = snpRawDF.columns.values.tolist()
+
+    # Obtain the bulk IDs from the header
+    bulks, misc, missingFlds = [], [], False
+
+    try:
+        for ftrName in header:
+            if ftrName.endswith('.AD'):
+                bulks.append(ftrName.split('.')[0])
+
+        # These variables will be used later, so the order in the sample list is very important
+        fbID, sbID = bulks[0], bulks[1]
+        fb_GT, sb_GT = fbID+'.GT', sbID+'.GT'
+        fb_AD, sb_AD = fbID+'.AD', sbID+'.AD'
+        fb_GQ, sb_GQ = fbID+'.GQ', sbID+'.GQ'
+    except (NameError, IndexError):
+        print('The allele depth (AD) field is missing. Please include the AD field in the input file.')
+        sys.exit()
+
+    # Check if any required field is missing in the input file
+    requiredFields, missingFields = ['CHROM', 'POS', 'REF', 'ALT', fb_GT, sb_GT, fb_AD, fb_GQ, sb_AD, sb_GQ], []
+
+    for elmt in requiredFields:
+        if elmt not in header:
+            missingFields.append(elmt)
+
+    if missingFields !=[]:
+        if len(missingFields) == 1:
+            print('The following required field is missing: ', missingFields)
         else:
-            chID = str(region[i])
+            print('The following required fields are missing: ', missingFields)
 
-        if chID not in chrmList:
-            print(chID, 'is not a valid chromosome name.')
-        else:
-            if region[i+1] < 1:
-                region[i+1] = 1
-            if region[i+2] > chrmSizeDict[chID][1]:
-                region[i+2] = chrmSizeDict[chID][1]
+        print('Please remake the input file to include the missing field(s).')
+        sys.exit()
 
-            if region[i+2] - region[i+1] > minFragSize:
-                chrmSzD[chID] = [region[i+1], region[i+2]]
-                chrmIDL.append(chID)
-                chrmSzL.append(region[i+2]-region[i+1])
-            else:
-                print(f'The size of the interested region on chromosome {chID} should be greater than', minFragSize, 'bp.')
+    # These variables will be used later, so the order in the sample list is very important
+    fb_AF, sb_AF = fbID+'.AF', sbID+'.AF'
+    fb_AD_REF, fb_AD_ALT = fb_AD + '_REF', fb_AD + '_ALT'
+    sb_AD_REF, sb_AD_ALT = sb_AD + '_REF', sb_AD + '_ALT'
+    fb_GT_REF, fb_GT_ALT = fb_GT + '_REF', fb_GT + '_ALT'
+    sb_GT_REF, sb_GT_ALT = sb_GT + '_REF', sb_GT + '_ALT'
+    fb_LD, sb_LD = fbID+'.LD', sbID+'.LD'
+    sm_fb_AD_REF, sm_fb_AD_ALT = 'sm_'+fb_AD_REF, 'sm_'+fb_AD_ALT
+    sm_sb_AD_REF, sm_sb_AD_ALT = 'sm_'+sb_AD_REF, 'sm_'+sb_AD_ALT
 
-        i += 3
+    snpDF = snpFiltering(snpRawDF)
 
-# Exit if chrmIDL is empty
-if chrmIDL == []:
-    print('No valid chromosome names were entered.')
-    sys.exit()
+    # Create a unique ID for each SNP (row) with its 'CHROM_POS'
+    snpDF['ID'] = snpDF.CHROM.astype(str) + '_' + snpDF.POS.astype(str)
 
-# Create a numeric ID for each chromosome, which can be used to sort the dataframe numerically by chromosome
-chrmDict = {}
-for i in range(1, len(chrmIDL)+1):
-    chrmDict[chrmIDL[i-1]] = i
+    if smpl == 'parents':
+        homoSNPs = snpDF[((snpDF[fb_AD_REF]==0) & (snpDF[sb_AD_ALT]==0)) \
+        | ((snpDF[fb_AD_ALT]==0) & (snpDF[sb_AD_REF]==0))]
+        heteroSNPs = snpDF.drop(index=homoSNPs.index)
 
-# Replace the string IDs with numeric IDs 
-snpRawDF['ChrmSortID'] = snpRawDF['CHROM']
-snpRawDF['ChrmSortID'].replace(chrmDict, inplace=True)
+        # snpDF.to_csv(os.path.join(filteringPath, 'Parents.csv'), index=None)
+        homoSNPs.to_csv(os.path.join(filteringPath, 'homoSNPs.csv'), index=None)
+        heteroSNPs.to_csv(os.path.join(filteringPath, 'heteroSNPs.csv'), index=None)
 
-# Obtain the bulk IDs from the header of the DataFrame
-header = snpRawDF.columns.values.tolist()
-bulks, misc, missingFlds = [], [], False
-# Extract the bulk IDs from the AD fields
-try:
-    for ftrName in header:
-        if ftrName.endswith('.AD'):
-            bulks.append(ftrName.split('.')[0])
-
-    fbID, sbID = bulks[0], bulks[1]
-    fb_GT, sb_GT = fbID+'.GT', sbID+'.GT'
-    fb_AD, sb_AD = fbID+'.AD', sbID+'.AD'
-    fb_GQ, sb_GQ = fbID+'.GQ', sbID+'.GQ'
-except (NameError, IndexError):
-    print('The allele depth (AD) field is missing. Please include the AD field in the input file.')
-    sys.exit()
-
-# Check if any required field is missing in the input file
-requiredFields = ['CHROM', 'POS', 'REF', 'ALT', fb_GT, fb_AD, fb_GQ, sb_GT, sb_AD, sb_GQ]
-missingFields = []
-for elmt in requiredFields:
-    if elmt not in header:
-        missingFields.append(elmt)
-if missingFields !=[]:
-    if len(missingFields) == 1:
-        print('The following required field is missing: ', missingFields)
+        # Save the parent-specific variable names for later use
+        p_fb_GT, p_sb_GT = fb_GT, sb_GT
+        p_fbID, p_sbID = fbID, sbID
+        p_FilteringPath = filteringPath
     else:
-        print('The following required fields are missing: ', missingFields)
+        bulkSNPs_lowq = snpDF[(snpDF[fb_GQ]<gqValue) | (snpDF[sb_GQ]<gqValue)]
+        bulkSNPs_lowq.to_csv(os.path.join(filteringPath, 'bulkSNPs_lowq.csv'), index=None)
+        bulkSNPs = snpDF.drop(index=bulkSNPs_lowq.index)
 
-    print('Please remake the input file to include the missing field(s).')
-    sys.exit()
+        # A SNP with very high LD is likily from the repetitive genomic sequence
+        # Remove SNPs that could be from the repetitive elements
+        fb_repLD, sb_repLD = hiReadFold * bulkSNPs[fb_LD].mean(), hiReadFold * bulkSNPs[sb_LD].mean() 
+        snpRep = bulkSNPs[(bulkSNPs[fb_LD]>fb_repLD) | (bulkSNPs[sb_LD]>sb_repLD)]
+        snpRep.to_csv(os.path.join(filteringPath, 'repetitiveSeq.csv'), index=None)
+        bulkSNPs = bulkSNPs.drop(index=snpRep.index)
+        bulkSNPs.to_csv(os.path.join(filteringPath, 'bulkSNPs_WP.csv'), index=False)
+
+    m += 1
 
 misc.append(['Header', header])
 misc.extend([['Bulk ID', bulks], ['Number of SNPs in the entire dataframe', len(snpRawDF.index)]])
 misc.extend([['Chromosome ID', chrmIDL]])
 misc.append(['Chromosome sizes', chrmSzL])
 
-fb_AF, sb_AF = fbID+'.AF', sbID+'.AF'
-fb_AD_REF, fb_AD_ALT = fb_AD + '_REF', fb_AD + '_ALT'
-sb_AD_REF, sb_AD_ALT = sb_AD + '_REF', sb_AD + '_ALT'
-fb_GT_REF, fb_GT_ALT = fb_GT + '_REF', fb_GT + '_ALT'
-sb_GT_REF, sb_GT_ALT = sb_GT + '_REF', sb_GT + '_ALT'
-fb_LD, sb_LD = fbID+'.LD', sbID+'.LD'
-sm_fb_AD_REF, sm_fb_AD_ALT = 'sm_'+fb_AD_REF, 'sm_'+fb_AD_ALT
-sm_sb_AD_REF, sm_sb_AD_ALT = 'sm_'+sb_AD_REF, 'sm_'+sb_AD_ALT
 fb_AF_CI, sb_AF_CI = fbID+'.AF_CI', sbID+'.AF_CI'
 fb_AF_CI0995, sb_AF_CI0995 = fb_AF_CI+'0995', sb_AF_CI+'0995'
 fb_AF_CI0005, sb_AF_CI0005 = fb_AF_CI+'0005', sb_AF_CI+'0005'
 
 if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
-    bsaSNPs = snpFiltering(snpRawDF)
+    # Find the common SNPs between the homoSNPs and bulkSNPs
+    bsaSNPs = bulkSNPs[bulkSNPs.ID.isin(homoSNPs.ID)]
+    npSNPs = bulkSNPs.drop(index=bsaSNPs.index)
+    bsaSNPs.to_csv(os.path.join(filteringPath, 'bsaSNPs_WP_before.csv'), index=None)
+    npSNPs.to_csv(os.path.join(filteringPath, 'npSNPs.csv'), index=None)
 
-    if len(bsaSNPs.index) == 0:
-        print('The dataset is empty')
+    refSNPs = homoSNPs[homoSNPs.ID.isin(bsaSNPs.ID)]
+    refSNPs.to_csv(os.path.join(p_FilteringPath, 'refSNPs.csv'), index=None)
+
+    if bsaSNPs.ID.tolist() != refSNPs.ID.tolist():
+        print('The ID sets of bsaSNPs and refSNPs are not the same.')
         sys.exit()
 
-    bsaSNPs.to_csv(os.path.join(filteringPath, 'bsaSNPs_WoP.csv'), index=None)
+    bsaSNPs = bsaSNPs.copy()
+    # Add the genotypes of the parents to the bulk SNP dataset
+    bsaSNPs['p_REF'] = refSNPs[p_fb_GT].str.split('/',expand=True)[0].tolist()
+    bsaSNPs['p_ALT'] = refSNPs[p_sb_GT].str.split('/',expand=True)[0].tolist()
 
-    # # Remove low LD SNPs to meet the z-test sample size requirment
+    # Swap the AD values and genotypes of the REF/ALT alleles in each bulk if the genotype of parent1 is different from the REF base
+    bsaSNPs[fb_GT] = np.where(bsaSNPs.p_REF==bsaSNPs.REF, bsaSNPs[fb_GT], bsaSNPs[fb_GT_ALT] + '/' + bsaSNPs[fb_GT_REF])
+    bsaSNPs[sb_GT] = np.where(bsaSNPs.p_REF==bsaSNPs.REF, bsaSNPs[sb_GT], bsaSNPs[sb_GT_ALT] + '/' + bsaSNPs[sb_GT_REF])
+    bsaSNPs[fb_AD] = np.where(bsaSNPs.p_REF==bsaSNPs.REF, bsaSNPs[fb_AD], bsaSNPs[fb_AD_ALT].astype(str) + ',' + bsaSNPs[fb_AD_REF].astype(str))
+    bsaSNPs[sb_AD] = np.where(bsaSNPs.p_REF==bsaSNPs.REF, bsaSNPs[sb_AD], bsaSNPs[sb_AD_ALT].astype(str) + ',' + bsaSNPs[sb_AD_REF].astype(str))
+    bsaSNPs[[fb_AD_REF, fb_AD_ALT]] = bsaSNPs[fb_AD].str.split(',', expand=True).astype(int)
+    bsaSNPs[[sb_AD_REF, sb_AD_ALT]] = bsaSNPs[sb_AD].str.split(',', expand=True).astype(int)
+    bsaSNPs['ad_Swap'] = np.where(bsaSNPs.p_REF==bsaSNPs.REF, 1, -1)
+    bsaSNPs.to_csv(os.path.join(filteringPath, 'bsaSNPs_WP_after.csv'), index=None)
+
+    # Remove low LD SNPs to meet the z-test sample size requirment
     # bsaSNPs = bsaSNPs[(bsaSNPs[fb_LD]>=30) & (bsaSNPs[sb_LD]>=30)]
 
     # Calculate z scores
@@ -967,7 +984,7 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
     bsaSNPs[sm_sb_AD_ALT] = np.random.binomial(bsaSNPs[sb_LD], sb_Freq)
     bsaSNPs[sm_sb_AD_REF] = bsaSNPs[sb_LD] - bsaSNPs[sm_sb_AD_ALT]
 
-    # Calculate allele frequency and Δ(allele frequency)
+    # Calculate allele frequency
     bsaSNPs[fb_AF] = bsaSNPs[fb_AD_ALT]/bsaSNPs[fb_LD]
     bsaSNPs[sb_AF] = bsaSNPs[sb_AD_ALT]/bsaSNPs[sb_LD]
     bsaSNPs['Delta_AF'] = bsaSNPs[sb_AF] - bsaSNPs[fb_AF]
@@ -977,27 +994,27 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
 
     try:
         from fisher import pvalue_npy
-        # Convert the AD columns to arrays
+        # Create new columns for Fisher's exact test P-values and simulated P-values
         print('Perform Fisher\'s exact test.')
         fb_AD_ALT_Arr = bsaSNPs[fb_AD_ALT].to_numpy(dtype=np.uint)
         fb_AD_REF_Arr = bsaSNPs[fb_AD_REF].to_numpy(dtype=np.uint)
         sb_AD_ALT_Arr = bsaSNPs[sb_AD_ALT].to_numpy(dtype=np.uint)
         sb_AD_REF_Arr = bsaSNPs[sb_AD_REF].to_numpy(dtype=np.uint)
-        # Calculate the P-values via Fisher's exact test
+
         __, __, bsaSNPs['FE_P'] = pvalue_npy(fb_AD_ALT_Arr, fb_AD_REF_Arr, sb_AD_ALT_Arr, sb_AD_REF_Arr)
         # bsaSNPs['FE_OR'] = (fb_AD_ALT_Arr * sb_AD_REF_Arr) / (fb_AD_REF_Arr * sb_AD_ALT_Arr)
-        # Convert the simulated AD columns to arrays
+
         sm_fb_AD_ALT_Arr = bsaSNPs[sm_fb_AD_ALT].to_numpy(dtype=np.uint)
         sm_fb_AD_REF_Arr = bsaSNPs[sm_fb_AD_REF].to_numpy(dtype=np.uint)
         sm_sb_AD_ALT_Arr = bsaSNPs[sm_sb_AD_ALT].to_numpy(dtype=np.uint)
         sm_sb_AD_REF_Arr = bsaSNPs[sm_sb_AD_REF].to_numpy(dtype=np.uint)
-        # Calculate the P-values using the simulated ADs
+
         __, __, bsaSNPs['sm_FE_P'] = pvalue_npy(sm_fb_AD_ALT_Arr, sm_fb_AD_REF_Arr, sm_sb_AD_ALT_Arr, sm_sb_AD_REF_Arr)
         # bsaSNPs['sm_FE_OR'] = (sm_fb_AD_ALT_Arr * sm_sb_AD_REF_Arr) / (sm_fb_AD_REF_Arr * sm_sb_AD_ALT_Arr)
 
         print(f'Fisher\'s exact test completed, time elapsed: {(time.time()-t0)/60} minutes.')
+
         print('Calculate thresholds of \u0394(allele frequency) and G-statistic.')
-        # Obtain the threshold of G-statistic and Δ(allele frequency)
         bsaSNPs['STAT'] = bsaSNPs.apply(statistics, axis=1)
 
         # Create new columns for Fisher's exact test results, allele frequency, Δ(allele frequency) confidence intervals, and G-statistic thresholds
@@ -1007,8 +1024,7 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
 
     except ImportError:
         from scipy.stats import fisher_exact
-        print('Looks like the module \'Fisher\' (https://github.com/brentp/fishers_exact_test) is not installed on your computer. Running the script would take much shorter time with this module installed.')
-        # Obtain the FE test P-values, the simulate P-values, and the thresholds of G-statistic and Δ(allele frequency)
+        print('Perform Fisher\'s exact test. This step can take a few hours; the more SNPs in the dataset or the higher the sequencing depth, the longer will it take.')
         bsaSNPs['STAT'] = bsaSNPs.apply(statisticsFE, axis=1)
 
         # Create new columns for Fisher's exact test results, allele frequency, Δ(allele frequency) confidence intervals, and G-statistic thresholds
@@ -1037,9 +1053,12 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
 
     # Reorgnaize the columns
     reorderColumns = ['CHROM', 'POS', 'REF', 'ALT', 'QUAL', fb_GT, fb_AD, fb_AD_REF, fb_AD_ALT, fb_LD, 'fb_ZScore', sm_fb_AD_ALT, fb_AF, fb_AF_CI0005, fb_AF_CI0995, fb_AF_CI, fb_GQ, sb_GT, sb_AD, sb_AD_REF, sb_AD_ALT, sb_LD, 'sb_ZScore', sm_sb_AD_ALT, sb_AF, sb_AF_CI0005, sb_AF_CI0995, sb_AF_CI, sb_GQ, 'Delta_AF', 'FE_P', 'sm_FE_P', 'G_S', 'DAF_CI0005', 'DAF_CI0995', 'GS_CI0995', 'DAF_CI', 'GS_CI', 'STAT']
+
     # Remove unnecessary columns and reorgnaize the columns
     # reorderColumns = ['CHROM', 'POS', 'REF', 'ALT', fb_GT, fb_AD_REF, fb_AD_ALT, fb_LD, 'fb_ZScore', sm_fb_AD_ALT, fb_GQ, sb_GT, sb_AD_REF, sb_AD_ALT, sb_LD, 'sb_ZScore', sm_sb_AD_ALT, sb_GQ, 'FE_P', 'sm_FE_P']
+
     bsaSNPs = bsaSNPs[reorderColumns]
+
     bsaSNPs.to_csv(oiFile, index=None)
 
     with open(os.path.join(path, 'Results', 'COMPLETE.txt'), 'w') as xie:
@@ -1089,6 +1108,7 @@ else:
         thrshld = float(du.readline().strip())
 
 # Identify likely trait-associated SNPs
+bsaSNPs = bsaSNPs.copy()
 bsaSNPs['sSNP'] = np.where(bsaSNPs['FE_P'] < alpha, 1, 0)
 
 # Plot layout setup
@@ -1120,10 +1140,9 @@ fig.text(0.001, 0.680, 'b', weight='bold', ha='left', va='bottom')
 fig.text(0.001, 0.465, 'c', weight='bold', ha='left', va='bottom')
 fig.text(0.001, 0.244, 'd', weight='bold', ha='left', va='bottom')
 
-fig.savefig(os.path.join(results, 'PyBSASeq_WoP.pdf'))
-fig.savefig(os.path.join(results, 'PyBSASeq_WoP.png'), dpi=600)
+fig.savefig(os.path.join(results, 'PyBSASeq_WP.pdf'))
+# fig.savefig(os.path.join(results, 'PyBSASeq_WP.png'), dpi=600)
 
-# Create a list of (CHROM, peak position)
 peaklst = pkList(snpRegion)
 
 if additionalPeaks.lower() == 'yes':
