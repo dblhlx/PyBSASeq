@@ -1,5 +1,5 @@
 **Note**: 
-1. It is strongly recommended to have [fisher](https://github.com/brentp/fishers_exact_test) installed on your system. It is fast in dealing with large datasets;
+1. It is strongly recommended to have [fisher](https://github.com/brentp/fishers_exact_test) installed on your system. It is fast in dealing with large datasets.
 2. If you used PyBSASeq in your pulications, please cite: Zhang, J., Panthee, D.R. PyBSASeq: a simple and effective algorithm for bulked segregant analysis with whole-genome sequencing data. BMC Bioinformatics 21, 99 (2020). https://doi.org/10.1186/s12859-020-3435-8
 
 ### PyBSASeq
@@ -8,11 +8,14 @@ A novel algorithm for BSA-Seq data analysis
 Python 3.6 or above is required to run the script. 
 
 #### Usage
-
+If only the bulk genomes were sequence: 
 `$ python PyBSASeq.py -i input -o output -p popstrct -b fbsize,sbsize`
 
+If the genomes of both the bulks and the parents were sequenced:
+`$ python PyBSASeq_WP.py -i input -o output -p popstrct -b fbsize,sbsize`
+
 Here are the details of the options used in the script:
-- input – the name of the input file (the GATK4-generated tsv file)
+- input – the name of the input file (the GATK4-generated tsv file). For the script PyBSASeq_WP.py, the format is as follows: parents.tsv,bulks.tsv
 - output – the name of the output file
 - popstrct – population structure; three choices available: F2 for an F2 population, RIL for a population of recombinant inbred lines, or BC for a backcross population
 - fbsize – the number of individuals in the first bulk
