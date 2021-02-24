@@ -738,7 +738,7 @@ for smpl in samples:
     elif inFile.endswith('.csv'):
         separator = ','
     else:
-        print('The input file should have the .csv or .tsv file extension')
+        print('The input files should be two tab/comma delimited files and have the .csv or .tsv file extension')
         sys.exit()
 
     if not os.path.exists(filteringPath):
