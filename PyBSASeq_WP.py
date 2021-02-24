@@ -737,6 +737,9 @@ for smpl in samples:
         separator = '\t'
     elif inFile.endswith('.csv'):
         separator = ','
+    else:
+        print('The input file should have the .csv or .tsv file extension')
+        sys.exit()
 
     if not os.path.exists(filteringPath):
         os.makedirs(filteringPath)

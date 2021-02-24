@@ -781,6 +781,9 @@ if inFile.endswith('.tsv'):
     separator = '\t'
 elif inFile.endswith('.csv'):
     separator = ','
+else:
+    print('The input file should have the .csv or .tsv file extension')
+    sys.exit()
 
 # Generte a SNP dataframe from the GATK4-generated tsv file
 snpRawDF = pd.read_csv(inFile, delimiter=separator, encoding='utf-8', dtype={'CHROM':str})
