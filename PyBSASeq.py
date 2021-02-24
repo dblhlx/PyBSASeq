@@ -782,7 +782,7 @@ if inFile.endswith('.tsv'):
 elif inFile.endswith('.csv'):
     separator = ','
 else:
-    print('The input file should be a tab/comma delimited file and have the .csv or .tsv file extension')
+    print('The input should be a tab/comma delimited file with the .csv or .tsv file extension')
     sys.exit()
 
 # Generte a SNP dataframe from the GATK4-generated tsv file
