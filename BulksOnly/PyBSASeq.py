@@ -503,7 +503,7 @@ def bsaseqPlot(chrmIDL, datafr):
             swDict[i][j][10] = swDict[i][pIndex][10]
             j += 1
 
-        # # Smoothing data of a chromosome or a selected region at the sliding windows level
+        # # Smoothing data of a chromosome or a selected region at the sliding window level
         # sg_yRatio = savgol_filter(yRatio, smthWL, polyOrder)
         # sg_y5 = savgol_filter(y5, smthWL, polyOrder)
         # sg_y6 = savgol_filter(y6, smthWL, polyOrder)
@@ -730,7 +730,7 @@ ap.add_argument('-v', '--pvalues', required=False, help='cutoff p-values: real_d
 ap.add_argument('-r', '--replication', type=int, required=False, help='the number of replications for threshold calculation', default=10000)
 ap.add_argument('-s', '--slidingwindow', required=False, help='size,incremental_step', type=lambda s: [int(t) for t in s.split(',')], default='2000000,10000')
 ap.add_argument('-g', '--gaps', required=False, help='gaps between subplots: horizontal,vertical', type=lambda s: [float(t) for t in s.split(',')], default='0.028,0.056')
-ap.add_argument('-m', '--smoothing', required=False, help='smoothing parameters: window_len,polyorder', type=lambda s: [int(t) for t in s.split(',')], default='101,5')
+ap.add_argument('-m', '--smoothing', required=False, help='smoothing parameters: window_len,polyorder', type=lambda s: [int(t) for t in s.split(',')], default='51,3')
 ap.add_argument('--smooth', type=bool, required=False, help='smooth the plot', default=True)
 ap.add_argument('-e', '--region', required=False, help='interested region(s): chrm,start,end', type=lambda s: [int(t) for t in s.split(',')], default='-1')
 ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SNPs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,6,-1')

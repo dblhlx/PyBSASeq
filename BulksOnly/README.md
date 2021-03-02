@@ -3,7 +3,7 @@
 `$ python PyBSASeq.py -i input -o output -p popstrct -b fbsize,sbsize`
 
 Here are the details of the options used in the script:
-- input – the name of the input file (the GATK4-generated tsv file). 
+- input – the name of the input file (the GATK4-generated tsv/csv file). The script and the input file should be in the same folder. 
 - output – the name of the output file
 - popstrct – population structure; three choices available: F2 for an F2 population, RIL for a population of recombinant inbred lines, or BC for a backcross population
 - fbsize – the number of individuals in the first bulk

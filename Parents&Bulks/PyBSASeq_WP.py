@@ -455,7 +455,7 @@ def bsaseqPlot(chrmIDL, datafr):
             swDict[i][j][10] = swDict[i][pIndex][10]
             j += 1
 
-        ## Smoothing data of a chromosome or a selected region at the sliding windows level
+        ## Smoothing data of a chromosome or a selected region at the sliding window level
         # sg_yRatio = savgol_filter(yRatio, smthWL, polyOrder)
         # sg_y5 = savgol_filter(y5, smthWL, polyOrder)
         # sg_y6 = savgol_filter(y6, smthWL, polyOrder)
