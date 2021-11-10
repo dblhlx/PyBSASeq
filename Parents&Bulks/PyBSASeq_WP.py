@@ -17,7 +17,7 @@ from scipy.signal import savgol_filter
 def smAlleleFreq(popStruc, sizeOfBulk, rep):
     '''
     An AA/Aa/aa individual carries 0%, 50%, and 100% of the alt (a) allele, respectively.
-    The AA:Aa:aa ratios are 0.25:0.5:0.25, 0.5:0:0.5, and 0.5:0.5:0, repectively, in a F2 
+    The AA:Aa:aa ratios are 0.25:0.5:0.25, 0.5:0:0.5, and 0.5:0.5:0, respectively, in a F2 
     population, in a RIL population, and in a back crossed population if A/a does not affect 
     the trait in the population (null hypothesis)
     '''
@@ -55,6 +55,39 @@ def chrmFiltering(df, chromosomeList):
     return [chrmSizeD, chromosomeList, smallChrmL]
 
 
+def xticks_property(l):
+    # Calculate distance between xticks and determine the tick unit
+    lrgst_chrm_length = max(l)
+    div_list = [500000000, 200000000, 100000000, 50000000, 20000000, 10000000, 5000000, 2000000, 1000000]
+    max_xticks, min_xticks= 7, 3
+
+    if lrgst_chrm_length/div_list[0] > max_xticks:
+        div_unit = 1000000000
+        length_unit = 'Gb'
+        rmzero = 1e-9
+    elif lrgst_chrm_length/div_list[-1] < min_xticks:
+        div_unit = 100000
+        length_unit = '\u00D7100 kb'
+        rmzero = 1e-5
+    else:
+        for i in div_list:
+            if lrgst_chrm_length/i <= max_xticks and lrgst_chrm_length/i >= min_xticks:
+                div_unit = i
+                if i/1000000 >= 100:
+                    length_unit = '\u00D7100 Mb'
+                    rmzero = 1e-8
+                elif i/1000000 >= 10:
+                    length_unit ='\u00D710 Mb'
+                    rmzero = 1e-7
+                elif i/1000000 >= 1:
+                    length_unit = 'Mb'
+                    rmzero = 1e-6
+
+                break
+
+    return [div_unit, rmzero, length_unit]
+
+
 def snpFiltering(df):
     print('Perform SNP filtering for the sequencing data of the', smpl)
     df = df.copy()
@@ -70,7 +103,7 @@ def snpFiltering(df):
     df.dropna(inplace=True)
     misc.append(['Number of SNPs after NA drop', len(df.index)])
 
-    # Fiter out 1 bp deletions
+    # Filter out 1 bp deletions
     inDel_1 = df[df.ALT.str.contains(r'\*')]
     df = df.drop(index=inDel_1.index)
 
@@ -98,7 +131,7 @@ def snpFiltering(df):
     df_2ALT_Real = df_2ALT[(df_2ALT[fb_AD].str.startswith('0')) & \
         (df_2ALT[sb_AD].str.startswith('0'))]
 
-    # The two-ALT SNP may be cuased by allele heterozygosity if the REF read is not zero
+    # The two-ALT SNP may be caused by allele heterozygosity if the REF read is not zero
     # Repetitive sequences in the genome or sequencing artifacts are other possibilities
     df_2ALT_Het = df_2ALT.drop(index=df_2ALT_Real.index)
     df_2ALT_Het.to_csv(os.path.join(filteringPath, '2ALT_Het.csv'), index=None)
@@ -157,7 +190,7 @@ def snpFiltering(df):
 
 
 def gStatistic_Array(o1, o3, o2, o4):
-    # Calculate G-statistc using numpy array input
+    # Calculate G-statistic using numpy array input
     np.seterr(all='ignore')
 
     e1 = np.where(o1+o2+o3+o4!=0, (o1+o2)*(o1+o3)/(o1+o2+o3+o4), 0)
@@ -193,7 +226,7 @@ def statisticsFE(row):
     sm_eb_Alt_Array = np.random.binomial(row[sb_LD], sb_Freq, rep)
     eb_LD_Array = np.full(rep, row[sb_LD])
 
-    # Create arraies of SNP indices and Δ(allele frequency) of a SNP
+    # Create arrays of SNP indices and Δ(allele frequency) of a SNP
     sm_yb_AF_Array = sm_yb_Alt_Array/yb_LD_Array
     sm_eb_AF_Array = sm_eb_Alt_Array/eb_LD_Array
     sm_DAF_Array = sm_eb_AF_Array - sm_yb_AF_Array
@@ -201,11 +234,11 @@ def statisticsFE(row):
     # Create a G-statistic array of a SNP
     sm_GS_Array = gStatistic_Array(sm_yb_Alt_Array, yb_LD_Array-sm_yb_Alt_Array, sm_eb_Alt_Array, eb_LD_Array-sm_eb_Alt_Array)
 
-    # Obtain the percentile of the above arraies
-    ci_yb_AF = np.percentile(sm_yb_AF_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
-    ci_eb_AF = np.percentile(sm_eb_AF_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
-    ci_DAF = np.percentile(sm_DAF_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
-    ci_GS = np.percentile(sm_GS_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
+    # Obtain the percentile of the above arrays
+    ci_yb_AF = np.percentile(sm_yb_AF_Array, percentile_list)
+    ci_eb_AF = np.percentile(sm_eb_AF_Array, percentile_list)
+    ci_DAF = np.percentile(sm_DAF_Array, percentile_list)
+    ci_GS = np.percentile(sm_GS_Array, percentile_list)
 
     return [fe, sm_FE, ci_yb_AF, ci_eb_AF, ci_DAF, ci_GS]
 
@@ -218,7 +251,7 @@ def statistics(row):
     sm_eb_Alt_Array = np.random.binomial(row[sb_LD], sb_Freq, rep)
     eb_LD_Array = np.full(rep, row[sb_LD])
 
-    # Create arraies of SNP indices and Δ(allele frequency) of a SNP
+    # Create arrays of SNP indices and Δ(allele frequency) of a SNP
     sm_yb_AF_Array = sm_yb_Alt_Array/yb_LD_Array
     sm_eb_AF_Array = sm_eb_Alt_Array/eb_LD_Array
     sm_DAF_Array = sm_eb_AF_Array - sm_yb_AF_Array
@@ -226,11 +259,11 @@ def statistics(row):
     # Create a G-statistic array of a SNP
     sm_GS_Array = gStatistic_Array(sm_yb_Alt_Array, yb_LD_Array-sm_yb_Alt_Array, sm_eb_Alt_Array, eb_LD_Array-sm_eb_Alt_Array)
 
-    # Obtain the percentile of the above arraies
-    ci_yb_AF = np.percentile(sm_yb_AF_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
-    ci_eb_AF = np.percentile(sm_eb_AF_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
-    ci_DAF = np.percentile(sm_DAF_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
-    ci_GS = np.percentile(sm_GS_Array, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
+    # Obtain the percentile of the above arrays
+    ci_yb_AF = np.percentile(sm_yb_AF_Array, percentile_list)
+    ci_eb_AF = np.percentile(sm_eb_AF_Array, percentile_list)
+    ci_DAF = np.percentile(sm_DAF_Array, percentile_list)
+    ci_GS = np.percentile(sm_GS_Array, percentile_list)
 
     return [ci_yb_AF, ci_eb_AF, ci_DAF, ci_GS]
 
@@ -241,14 +274,14 @@ def smThresholds_proximal(DF):
     ratioLi = []
     for __ in range(rep):
         sm_SNP_SMPL = DF.sample(snpPerSW, replace=True)
-        sm_sSNP_SMPL = sm_SNP_SMPL[sm_SNP_SMPL['sm_FEP']<smAlpha]
+        sm_sSNP_SMPL = sm_SNP_SMPL[sm_SNP_SMPL['sm_FE_P']<smAlpha]
 
         ratioLi.append(len(sm_sSNP_SMPL.index)/snpPerSW)
 
-    misc.append(['Genome-wide sSNP/totalSNP ratio threshold', np.percentile(ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])])
+    misc.append(['Genome-wide sSNP/totalSNP ratio threshold', np.percentile(ratioLi, percentile_list)])
     print(f'Threshold calculation completed, time elapsed: {(time.time()-t0)/60} minutes.')
 
-    return np.percentile(ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
+    return np.percentile(ratioLi, percentile_list)
 
 
 def smThresholds_gw(DF):
@@ -263,17 +296,17 @@ def smThresholds_gw(DF):
         gw_sm_sb_AD_ALT_Arr = np.random.binomial(sm_SNP_SMPL[sb_LD], sb_Freq).astype(np.uint)
         gw_sm_sb_AD_REF_Arr = sm_SNP_SMPL[sb_LD].to_numpy().astype(np.uint) - gw_sm_sb_AD_ALT_Arr
 
-        __, __, gw_sm_FEP_Arr = pvalue_npy(gw_sm_fb_AD_ALT_Arr, gw_sm_fb_AD_REF_Arr, gw_sm_sb_AD_ALT_Arr, gw_sm_sb_AD_REF_Arr)
+        __, __, gw_sm_FE_P_Arr = pvalue_npy(gw_sm_fb_AD_ALT_Arr, gw_sm_fb_AD_REF_Arr, gw_sm_sb_AD_ALT_Arr, gw_sm_sb_AD_REF_Arr)
         # gw_sm_FE_OR_Arr = (gw_sm_fb_AD_ALT_Arr * gw_sm_sb_AD_REF_Arr) / (gw_sm_fb_AD_REF_Arr * gw_sm_sb_AD_ALT_Arr)
 
-        sSNP_Arr = np.where(gw_sm_FEP_Arr<smAlpha, 1, 0)
+        sSNP_Arr = np.where(gw_sm_FE_P_Arr<smAlpha, 1, 0)
 
         gw_ratioLi.append(np.mean(sSNP_Arr))
 
-    misc.append(['Genome-wide sSNP/totalSNP ratio threshold', np.percentile(gw_ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])])
+    misc.append(['Genome-wide sSNP/totalSNP ratio threshold', np.percentile(gw_ratioLi, percentile_list)])
     print(f'Threshold calculation completed, time elapsed: {(time.time()-t0)/60} minutes.')
 
-    return np.percentile(gw_ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
+    return np.percentile(gw_ratioLi, percentile_list)
 
 
 def smThresholds_sw(df):
@@ -292,15 +325,15 @@ def smThresholds_sw(df):
         sw_sm_sb_AD_REF_Arr = sw_sb_LD_Arr - sw_sm_sb_AD_ALT_Arr
 
         # Calculate the P-value via Fisher's Exact test
-        __, __, sw_sm_FEP_Arr = pvalue_npy(sw_sm_fb_AD_ALT_Arr, sw_sm_fb_AD_REF_Arr, sw_sm_sb_AD_ALT_Arr, sw_sm_sb_AD_REF_Arr)
+        __, __, sw_sm_FE_P_Arr = pvalue_npy(sw_sm_fb_AD_ALT_Arr, sw_sm_fb_AD_REF_Arr, sw_sm_sb_AD_ALT_Arr, sw_sm_sb_AD_REF_Arr)
         # # Calculate the odd ratio, not needed for BSA-Seq analysis
         # sw_sm_FE_OR_Arr = (sw_sm_fb_AD_ALT_Arr * sw_sm_sb_AD_REF_Arr) / (sw_sm_fb_AD_REF_Arr * sw_sm_sb_AD_ALT_Arr)
 
-        sSNP_Arr = np.where(sw_sm_FEP_Arr<smAlpha, 1, 0)
+        sSNP_Arr = np.where(sw_sm_FE_P_Arr<smAlpha, 1, 0)
 
         sw_ratioLi.append(np.mean(sSNP_Arr))
 
-    return np.percentile(sw_ratioLi, [0.5, 99.5, 2.5, 97.5, 5.0, 95.0])
+    return np.percentile(sw_ratioLi, percentile_list)
 
 
 def zeroSNP(li):
@@ -336,12 +369,12 @@ def bsaseqPlot(chrmIDL, datafr):
     print('Prepare SNP data for plotting via the sliding window algorithm')
     global misc
     global snpRegion, swDataFrame
-    # sg_yRatio_List = []     # Smoothed sSNP/totalSNP ratios of a chromosome or a selected genomic region
+    sg_yRatio_List = []     # Smoothed sSNP/totalSNP ratios of a chromosome or a selected genomic region
     swRows = []
     wmL, swDict, snpRegion = [], {}, []
 
-    # Analyze each chromsome separately
-    numOfSNPOnChr = []      # List containing the sSNP/totalSNP, # of SSNPs, and # of totalSNPs of a chromosome
+    # Analyze each chromosome separately
+    numOfSNPOnChr = []      # List containing the sSNP/totalSNP, # of sSNPs, and # of totalSNPs of a chromosome
     ratioPeakL = []         # List containing the peak of each chromosome 
     i = 1
     for chrmID in chrmIDL:
@@ -365,18 +398,6 @@ def bsaseqPlot(chrmIDL, datafr):
         y7 = []             # y7: Δ(allele frequency)
         y8, y9 = [], []     # The confidence interval of the Δ(allele frequency)
 
-        # Smoothing data of a chromosome or a selected region at the SNP level
-        ch = ch.copy()
-        ch['sg_FEP'] = savgol_filter(ch.FEP, smthWL, polyOrder)
-        ch['sg_GS'] = savgol_filter(ch.GS, smthWL, polyOrder)
-        ch['sg_GS_CI0995'] = savgol_filter(ch.GS_CI0995, smthWL, polyOrder)
-        ch['sg_Delta_AF'] = savgol_filter(ch.Delta_AF, smthWL, polyOrder)
-        ch['sg_DAF_CI0005'] = savgol_filter(ch.DAF_CI0005, smthWL, polyOrder)
-        ch['sg_DAF_CI0995'] = savgol_filter(ch.DAF_CI0995, smthWL, polyOrder)
-        # sg_fb_ZRatio = savgol_filter(fb_ZRatio, smthWL, polyOrder)
-        # sg_sb_ZRatio = savgol_filter(sb_ZRatio, smthWL, polyOrder)
-        ch['sg_sSNP'] = np.where(ch.FEP < alpha, 1, 0)
-
         # Calculate, sSNP/totalSNP, G-statistic, and Δ(allele frequency) of a sliding window
         while swEnd <= regEnd:
             # swDF: sSNPs in a sliding window; swDFT: all SNPs in a sliding window
@@ -384,33 +405,22 @@ def bsaseqPlot(chrmIDL, datafr):
 
             rowInSwDF = len(swDF.index)       # number of SNPs in a sliding window
             x.append(swStr)                   # Append the starpoint of the sliding window to x
+            y.append(swDF['sSNP'].sum())      # Append number of sSNPs of the sliding window to y
             yT.append(rowInSwDF)              # Append number of totalSNPs of the sliding window to yT
 
             # 'try/exception' cannot catch the EmptyDataError; seems it only works when reading a .csv/.tsv file, not an empty subset of a existing dataframe. DivisionByZero generates 'nan' for a series or an array.
             if rowInSwDF >= minSNPs:
-                if smoothing == True:
-                    y.append(swDF['sg_sSNP'].sum())          # Append number of sSNPs of the sliding window to y
-                    yRatio.append(swDF['sg_sSNP'].mean())    # Append the sSNP/totalSNP ratio of the sliding window to yRatio
-                    # fb_ZRatio.append(swDF['fb_Z'].mean())
-                    # sb_ZRatio.append(swDF['sb_Z'].mean())
-                    y5.append(swDF['sg_GS'].sum()/rowInSwDF)
-                    y6.append(swDF['sg_GS_CI0995'].sum()/rowInSwDF)
-                    y7.append(swDF['sg_Delta_AF'].sum()/rowInSwDF)
-                    y8.append(swDF['sg_DAF_CI0005'].sum()/rowInSwDF)
-                    y9.append(swDF['sg_DAF_CI0995'].sum()/rowInSwDF)
-                else:
-                    y.append(swDF['sSNP'].sum())      # Append number of sSNPs of the sliding window to y
-                    yRatio.append(swDF['sSNP'].mean())    # Append the sSNP/totalSNP ratio of the sliding window to yRatio
-                    # fb_ZRatio.append(swDF['fb_Z'].mean())
-                    # sb_ZRatio.append(swDF['sb_Z'].mean())
-                    y5.append(swDF['GS'].sum()/rowInSwDF)
-                    y6.append(swDF['GS_CI0995'].sum()/rowInSwDF)
-                    y7.append(swDF['Delta_AF'].sum()/rowInSwDF)
-                    y8.append(swDF['DAF_CI0005'].sum()/rowInSwDF)
-                    y9.append(swDF['DAF_CI0995'].sum()/rowInSwDF)
+                yRatio.append(swDF['sSNP'].mean())    # Append the sSNP/totalSNP ratio of the sliding window to yRatio
+                # fb_ZRatio.append(swDF['fb_Z'].mean())
+                # sb_ZRatio.append(swDF['sb_Z'].mean())
+                y5.append(swDF['G_S'].sum()/rowInSwDF)
+                y6.append(swDF['GS_CI0995'].sum()/rowInSwDF)
+                y7.append(swDF['Delta_AF'].sum()/rowInSwDF)
+                y8.append(swDF['DAF_CI0005'].sum()/rowInSwDF)
+                y9.append(swDF['DAF_CI0995'].sum()/rowInSwDF)
 
                 # useful info of the sliding window
-                rowContents = [chrmID, swStr, int(swDF[fb_LD].mean()), int(swDF[sb_LD].mean()), y[-1], rowInSwDF, yRatio[-1], y5[-1], y6[-1], y7[-1], y8[-1], y9[-1]]
+                rowContents = [chrmID, swStr, int(swDF[fb_LD].mean()), int(swDF[sb_LD].mean()), swDF['sSNP'].sum(), rowInSwDF, yRatio[-1], y5[-1], y6[-1], y7[-1], y8[-1], y9[-1]]
             else:
                 wmL.append(['No SNP in the sliding window', i, swStr])
                 zeroSNP(yRatio)
@@ -455,23 +465,23 @@ def bsaseqPlot(chrmIDL, datafr):
             swDict[i][j][10] = swDict[i][pIndex][10]
             j += 1
 
-        ## Smoothing data of a chromosome or a selected region at the sliding window level
-        # sg_yRatio = savgol_filter(yRatio, smthWL, polyOrder)
-        # sg_y5 = savgol_filter(y5, smthWL, polyOrder)
-        # sg_y6 = savgol_filter(y6, smthWL, polyOrder)
-        # sg_y7 = savgol_filter(y7, smthWL, polyOrder)
-        # sg_y8 = savgol_filter(y8, smthWL, polyOrder)
-        # sg_y9 = savgol_filter(y9, smthWL, polyOrder)
-        ## sg_fb_ZRatio = savgol_filter(fb_ZRatio, smthWL, polyOrder)
-        ## sg_sb_ZRatio = savgol_filter(sb_ZRatio, smthWL, polyOrder)
+        # Smoothing data of a chromosome or a selected region
+        sg_yRatio = savgol_filter(yRatio, smthWL, polyOrder)
+        sg_y5 = savgol_filter(y5, smthWL, polyOrder)
+        sg_y6 = savgol_filter(y6, smthWL, polyOrder)
+        sg_y7 = savgol_filter(y7, smthWL, polyOrder)
+        sg_y8 = savgol_filter(y8, smthWL, polyOrder)
+        sg_y9 = savgol_filter(y9, smthWL, polyOrder)
+        # sg_fb_ZRatio = savgol_filter(fb_ZRatio, smthWL, polyOrder)
+        # sg_sb_ZRatio = savgol_filter(sb_ZRatio, smthWL, polyOrder)
 
-        # sg_yRatio_List.extend(sg_yRatio)
+        sg_yRatio_List.extend(sg_yRatio)
 
         # Handle the plot with a single column (chromosome)
         if len(chrmIDL) == 1:
             # Set up x-ticks
-            axs[0].set_xticks(np.arange(0, max(x), 10000000))
-            ticks = axs[0].get_xticks()*1e-7
+            axs[0].set_xticks(np.arange(0, max(x), xt_pro[0]))
+            ticks = axs[0].get_xticks()*xt_pro[1]
             axs[0].set_xticklabels(ticks.astype(int))
 
             # Add ylabels to the first column of the subplots
@@ -484,42 +494,45 @@ def bsaseqPlot(chrmIDL, datafr):
             # Plot sSNPs and total SNPs against their genomic positions
             axs[0].plot(x, y, c='k')
             axs[0].plot(x, yT, c='b')
-            axs[0].set_title('Chr'+chrmID)
+            if chrmID.isdigit() == True:
+                axs[0].set_title('Chr'+chrmID)
+            else:
+                axs[0].set_title(chrmID)
 
             # Plot sSNP/totalSNP, G-statistic, and Δ(allele frequency) against their genomic positions
-            # if smoothing == True:
-            #     # sSNPs/totalSNPs via Fisher's exact test
-            #     axs[1].plot(x, sg_yRatio, c='k')
+            if smoothing == True:
+                # sSNPs/totalSNPs via Fisher's exact test
+                axs[1].plot(x, sg_yRatio, c='k')
 
-            #     # G-statistic
-            #     axs[2].plot(x, sg_y5, c='k')
-            #     axs[2].plot(x, sg_y6, c='r')
+                # G-statistic
+                axs[2].plot(x, sg_y5, c='k')
+                axs[2].plot(x, sg_y6, c='r')
 
-            #     # Δ(allele frequency)
-            #     axs[3].plot(x, sg_y7, c='k')
-            #     axs[3].plot(x, sg_y8, c='r')
-            #     axs[3].plot(x, sg_y9, c='r')
+                # Δ(allele frequency)
+                axs[3].plot(x, sg_y7, c='k')
+                axs[3].plot(x, sg_y8, c='r')
+                axs[3].plot(x, sg_y9, c='r')
 
-            #     # sSNPs/totalSNPs plot via z-test
-            #     # axs[1].plot(x, sg_fb_ZRatio, c='c')
-            #     # axs[1].plot(x, sg_sb_ZRatio, c='g')
+                # sSNPs/totalSNPs plot via z-test
+                # axs[1].plot(x, sg_fb_ZRatio, c='c')
+                # axs[1].plot(x, sg_sb_ZRatio, c='g')
 
-            # else:
-            # sSNPs/totalSNPs via Fisher's exact test
-            axs[1].plot(x, yRatio, c='k')
+            else:
+                # sSNPs/totalSNPs via Fisher's exact test
+                axs[1].plot(x, yRatio, c='k')
 
-            # G-statistic
-            axs[2].plot(x, y5, c='k')
-            axs[2].plot(x, y6, c='r')
+                # G-statistic
+                axs[2].plot(x, y5, c='k')
+                axs[2].plot(x, y6, c='r')
 
-            # Δ(allele frequency)
-            axs[3].plot(x, y7, c='k')
-            axs[3].plot(x, y8, c='r')
-            axs[3].plot(x, y9, c='r')
+                # Δ(allele frequency)
+                axs[3].plot(x, y7, c='k')
+                axs[3].plot(x, y8, c='r')
+                axs[3].plot(x, y9, c='r')
 
-            # sSNPs/totalSNPs plot via z-test
-            # axs[1].plot(x, fb_ZRatio, c='c')
-            # axs[1].plot(x, sb_ZRatio, c='g')
+                # sSNPs/totalSNPs plot via z-test
+                # axs[1].plot(x, fb_ZRatio, c='c')
+                # axs[1].plot(x, sb_ZRatio, c='g')
 
             # Add the 99.5 percentile line as the threshold, x[-1] is the startpoint of the last sliding window of a chromosome
             axs[1].plot([plotSP, x[-1]], [thrshld, thrshld], c='r')
@@ -528,8 +541,8 @@ def bsaseqPlot(chrmIDL, datafr):
         # Handle the plot with multiple columns (chromosomes)
         else:
             # Set up x-ticks
-            axs[0,i-1].set_xticks(np.arange(0, max(x), 10000000))
-            ticks = axs[0,i-1].get_xticks()*1e-7
+            axs[0,i-1].set_xticks(np.arange(0, max(x), xt_pro[0]))
+            ticks = axs[0,i-1].get_xticks()*xt_pro[1]
             axs[0,i-1].set_xticklabels(ticks.astype(int))
 
             # Add ylabels to the first column of the subplots
@@ -542,41 +555,44 @@ def bsaseqPlot(chrmIDL, datafr):
             # Plot sSNP and totalSNPs against their genomic positions
             axs[0,i-1].plot(x, y, c='k')
             axs[0,i-1].plot(x, yT, c='b')
-            axs[0,i-1].set_title('Chr'+chrmID)
+            if chrmID.isdigit() == True:
+                axs[0,i-1].set_title('Chr'+chrmID)
+            else:
+                axs[0,i-1].set_title(chrmID)
 
             # Plot sSNP/totalSNP, G-statistic, and Δ(allele frequency) against their genomic positions
-            # if smoothing == True:
-            #     # sSNPs/totalSNPs via Fisher's exact test
-            #     axs[1,i-1].plot(x, sg_yRatio, c='k')
+            if smoothing == True:
+                # sSNPs/totalSNPs via Fisher's exact test
+                axs[1,i-1].plot(x, sg_yRatio, c='k')
 
-            #     # G-statistic
-            #     axs[2,i-1].plot(x, sg_y5, c='k')
-            #     axs[2,i-1].plot(x, sg_y6, c='r')
+                # G-statistic
+                axs[2,i-1].plot(x, sg_y5, c='k')
+                axs[2,i-1].plot(x, sg_y6, c='r')
 
-            #     # Δ(allele frequency)
-            #     axs[3,i-1].plot(x, sg_y7, c='k')
-            #     axs[3,i-1].plot(x, sg_y8, c='r')
-            #     axs[3,i-1].plot(x, sg_y9, c='r')
+                # Δ(allele frequency)
+                axs[3,i-1].plot(x, sg_y7, c='k')
+                axs[3,i-1].plot(x, sg_y8, c='r')
+                axs[3,i-1].plot(x, sg_y9, c='r')
 
-            #     # sSNPs/totalSNPs plot via z-test
-            #     # axs[1,i-1].plot(x, sg_fb_ZRatio, c='c')
-            #     # axs[1,i-1].plot(x, sg_sb_ZRatio, c='g')
-            # else:
-            # sSNPs/totalSNPs via Fisher's exact test
-            axs[1,i-1].plot(x, yRatio, c='k')
+                # sSNPs/totalSNPs plot via z-test
+                # axs[1,i-1].plot(x, sg_fb_ZRatio, c='c')
+                # axs[1,i-1].plot(x, sg_sb_ZRatio, c='g')
+            else:
+                # sSNPs/totalSNPs via Fisher's exact test
+                axs[1,i-1].plot(x, yRatio, c='k')
                 
-            # G-statistic
-            axs[2,i-1].plot(x, y5, c='k')
-            axs[2,i-1].plot(x, y6, c='r')
+                # G-statistic
+                axs[2,i-1].plot(x, y5, c='k')
+                axs[2,i-1].plot(x, y6, c='r')
 
-            # Δ(allele frequency)
-            axs[3,i-1].plot(x, y7, c='k')
-            axs[3,i-1].plot(x, y8, c='r')
-            axs[3,i-1].plot(x, y9, c='r')
+                # Δ(allele frequency)
+                axs[3,i-1].plot(x, y7, c='k')
+                axs[3,i-1].plot(x, y8, c='r')
+                axs[3,i-1].plot(x, y9, c='r')
 
-            # sSNPs/totalSNPs plot via z-test
-            # axs[1,i-1].plot(x, fb_ZRatio, c='c')
-            # axs[1,i-1].plot(x, sb_ZRatio, c='g')
+                # sSNPs/totalSNPs plot via z-test
+                # axs[1,i-1].plot(x, fb_ZRatio, c='c')
+                # axs[1,i-1].plot(x, sb_ZRatio, c='g')
 
             # Add the 99.5 percentile line as the threshold, x[-1] is the startpoint of the last sliding window of a chromosome
             axs[1,i-1].plot([plotSP, x[-1]], [thrshld, thrshld], c='r')
@@ -622,8 +638,8 @@ def bsaseqPlot(chrmIDL, datafr):
     headerResults = ['CHROM','QTLStart','QTLEnd','Peaks', 'NumOfSWs']
     pd.DataFrame(snpRegion, columns=headerResults).to_csv(os.path.join(results, 'snpRegion.csv'), index=False)
 
-    swDataFrame = pd.DataFrame(swRows, columns=['CHROM', 'sw_Str', fbID+'.AvgLD', sbID+'.AvgLD', 'sSNP', 'toatalSNP', r'sSNP/totalSNP', 'GS', 'GS_CI0995', 'Delta_AF', 'DAF_CI0005', 'DAF_CI0995'])
-    # swDataFrame['smthedRatio'] = sg_yRatio_List
+    swDataFrame = pd.DataFrame(swRows, columns=['CHROM', 'sw_Str', fbID+'.AvgLD', sbID+'.AvgLD', 'sSNP', 'totalSNP', r'sSNP/totalSNP', 'GS', 'GS_CI0995', 'Delta_AF', 'DAF_CI0005', 'DAF_CI0995'])
+    swDataFrame['smthedRatio'] = sg_yRatio_List
 
     swDataFrame.to_csv(os.path.join(results, 'slidingWindows_WP.csv'), index=False)
 
@@ -666,7 +682,7 @@ def accurateThreshold_sw(l, df):
     peaks = []
     for subL in l:
         peakSW = df[(df.CHROM == subL[0]) & (df.POS >= subL[1]) & (df.POS <= subL[1]+swSize-1)]
-        sSNP_PeakSW = peakSW[peakSW.FEP<alpha]
+        sSNP_PeakSW = peakSW[peakSW.FE_P<alpha]
 
         sSNP, totalSNP = len(sSNP_PeakSW.index), len(peakSW.index)
         ratio = sSNP / totalSNP
@@ -681,7 +697,7 @@ def accurateThreshold_gw(l, df):
     peaks = []
     for subL in l:
         peakSW = df[(df.CHROM == subL[0]) & (df.POS >= subL[1]) & (df.POS <= subL[1]+swSize-1)]
-        sSNP_PeakSW = peakSW[peakSW.FEP<alpha]
+        sSNP_PeakSW = peakSW[peakSW.FE_P<alpha]
 
         sSNP, totalSNP = len(sSNP_PeakSW.index), len(peakSW.index)
         ratio = sSNP / totalSNP
@@ -714,9 +730,9 @@ ap.add_argument('-r', '--replication', type=int, required=False, help='the numbe
 ap.add_argument('-s', '--slidingwindow', required=False, help='size,incremental_step', type=lambda s: [int(t) for t in s.split(',')], default='2000000,10000')
 ap.add_argument('-g', '--gaps', required=False, help='gaps between subplots: horizontal,vertical', type=lambda s: [float(t) for t in s.split(',')], default='0.028,0.056')
 ap.add_argument('-m', '--smoothing', required=False, help='smoothing parameters: window_len,polyorder', type=lambda s: [int(t) for t in s.split(',')], default='51,3')
-ap.add_argument('--smooth', type=bool, required=False, help='smooth the plot', default=True)
+ap.add_argument('--smooth', type=bool, required=False, help='smooth the plot', default=False)
 ap.add_argument('-e', '--region', required=False, help='interested region(s): chrm,start,end', type=lambda s: [int(t) for t in s.split(',')], default='-1')
-ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimumu SNPs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,6,1')
+ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SNPs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,6,1')
 
 args = ap.parse_args()
 inputFiles = args.input
@@ -732,6 +748,7 @@ region = args.region
 gqValue, minSNPs, hiReadFold, mrIndex = args.misc[0], args.misc[1], args.misc[2], args.misc[3]
 minFragSize = swSize + smthWL * incrementalStep     # Minimum chromosome size allowed
 additionalPeaks = ''
+percentile_list = [0.5, 99.5, 2.5, 97.5, 5.0, 95.0]
 
 path = os.getcwd()
 samples = ['parents', 'bulks']
@@ -760,9 +777,6 @@ for smpl in samples:
         separator = '\t'
     elif inFile.endswith('.csv'):
         separator = ','
-    else:
-        print('The input should be two tab/comma delimited files with the .csv or .tsv file extension')
-        sys.exit()
 
     if not os.path.exists(filteringPath):
         os.makedirs(filteringPath)
@@ -808,7 +822,7 @@ for smpl in samples:
                         invalidChrmL.append(ch)
 
                 if invalidChrmL != []:
-                    print('These chrmosome names are invalid:', invalidChrmL,'\n')
+                    print('These chromosome names are invalid:', invalidChrmL,'\n')
 
                 for ch in invalidChrmL:
                     chrmIDL.remove(ch)
@@ -832,7 +846,7 @@ for smpl in samples:
             l, n = len(region), len(region) % 3
             if n != 0:
                 region = region[0:l-n]
-                print('Each chromosome name should be followsed by the starting and ending points of the interested region.')
+                print('Each chromosome name should be followed by the starting and ending points of the interested region.')
 
             i = 0
             while i < len(region):
@@ -949,7 +963,7 @@ for smpl in samples:
         bulkSNPs_lowq.to_csv(os.path.join(filteringPath, 'bulkSNPs_lowq.csv'), index=None)
         bulkSNPs = snpDF.drop(index=bulkSNPs_lowq.index)
 
-        # A SNP with very high LD is likily from the repetitive genomic sequence
+        # A SNP with very high LD is likely from the repetitive genomic sequence
         # Remove SNPs that could be from the repetitive elements
         fb_repLD, sb_repLD = hiReadFold * bulkSNPs[fb_LD].mean(), hiReadFold * bulkSNPs[sb_LD].mean() 
         snpRep = bulkSNPs[(bulkSNPs[fb_LD]>fb_repLD) | (bulkSNPs[sb_LD]>sb_repLD)]
@@ -958,6 +972,8 @@ for smpl in samples:
         bulkSNPs.to_csv(os.path.join(filteringPath, 'bulkSNPs_WP.csv'), index=False)
 
     m += 1
+
+xt_pro = xticks_property(chrmSzL)
 
 misc.append(['Header', header])
 misc.extend([['Bulk ID', bulks], ['Number of SNPs in the entire dataframe', len(snpRawDF.index)]])
@@ -997,7 +1013,7 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
     bsaSNPs['ad_Swap'] = np.where(bsaSNPs.p_REF==bsaSNPs.REF, 1, -1)
     bsaSNPs.to_csv(os.path.join(filteringPath, 'bsaSNPs_WP_after.csv'), index=None)
 
-    # Remove low LD SNPs to meet the z-test sample size requirment
+    # Remove low LD SNPs to meet the z-test sample size requirement
     # bsaSNPs = bsaSNPs[(bsaSNPs[fb_LD]>=30) & (bsaSNPs[sb_LD]>=30)]
 
     # Calculate z scores
@@ -1016,7 +1032,7 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
     bsaSNPs['Delta_AF'] = bsaSNPs[sb_AF] - bsaSNPs[fb_AF]
 
     # Calculate G-statistic
-    bsaSNPs['GS'] = gStatistic_Array(bsaSNPs[fb_AD_REF], bsaSNPs[fb_AD_ALT], bsaSNPs[sb_AD_REF], bsaSNPs[sb_AD_ALT])
+    bsaSNPs['G_S'] = gStatistic_Array(bsaSNPs[fb_AD_REF], bsaSNPs[fb_AD_ALT], bsaSNPs[sb_AD_REF], bsaSNPs[sb_AD_ALT])
 
     try:
         from fisher import pvalue_npy
@@ -1027,7 +1043,7 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
         sb_AD_ALT_Arr = bsaSNPs[sb_AD_ALT].to_numpy(dtype=np.uint)
         sb_AD_REF_Arr = bsaSNPs[sb_AD_REF].to_numpy(dtype=np.uint)
 
-        __, __, bsaSNPs['FEP'] = pvalue_npy(fb_AD_ALT_Arr, fb_AD_REF_Arr, sb_AD_ALT_Arr, sb_AD_REF_Arr)
+        __, __, bsaSNPs['FE_P'] = pvalue_npy(fb_AD_ALT_Arr, fb_AD_REF_Arr, sb_AD_ALT_Arr, sb_AD_REF_Arr)
         # bsaSNPs['FE_OR'] = (fb_AD_ALT_Arr * sb_AD_REF_Arr) / (fb_AD_REF_Arr * sb_AD_ALT_Arr)
 
         sm_fb_AD_ALT_Arr = bsaSNPs[sm_fb_AD_ALT].to_numpy(dtype=np.uint)
@@ -1035,7 +1051,7 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
         sm_sb_AD_ALT_Arr = bsaSNPs[sm_sb_AD_ALT].to_numpy(dtype=np.uint)
         sm_sb_AD_REF_Arr = bsaSNPs[sm_sb_AD_REF].to_numpy(dtype=np.uint)
 
-        __, __, bsaSNPs['sm_FEP'] = pvalue_npy(sm_fb_AD_ALT_Arr, sm_fb_AD_REF_Arr, sm_sb_AD_ALT_Arr, sm_sb_AD_REF_Arr)
+        __, __, bsaSNPs['sm_FE_P'] = pvalue_npy(sm_fb_AD_ALT_Arr, sm_fb_AD_REF_Arr, sm_sb_AD_ALT_Arr, sm_sb_AD_REF_Arr)
         # bsaSNPs['sm_FE_OR'] = (sm_fb_AD_ALT_Arr * sm_sb_AD_REF_Arr) / (sm_fb_AD_REF_Arr * sm_sb_AD_ALT_Arr)
 
         print(f'Fisher\'s exact test completed, time elapsed: {(time.time()-t0)/60} minutes.')
@@ -1057,8 +1073,8 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
         bsaSNPs[['fisher_exact', 'sm_FE', fb_AF_CI, sb_AF_CI, 'DAF_CI', 'GS_CI']] = pd.DataFrame(bsaSNPs.STAT.values.tolist(), index=bsaSNPs.index)
 
         # Create new columns for Fisher's exact test P-values or simulated P-values
-        bsaSNPs['FEP'] = bsaSNPs['fisher_exact'].apply(lambda x: x[1]).astype(float)
-        bsaSNPs['sm_FEP'] = bsaSNPs['sm_FE'].apply(lambda x: x[1]).astype(float)
+        bsaSNPs['FE_P'] = bsaSNPs['fisher_exact'].apply(lambda x: x[1]).astype(float)
+        bsaSNPs['sm_FE_P'] = bsaSNPs['sm_FE'].apply(lambda x: x[1]).astype(float)
 
         print(f'Fisher\'s exact test and calculating thresholds of \u0394(allele frequency) and G-statistic completed, time elapsed: {(time.time()-t0)/60} minutes.')
 
@@ -1077,11 +1093,11 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
         bsaSNPs['DAF_CI0995'] = bsaSNPs['DAF_CI0995'] * -1
         bsaSNPs['DAF_CI0005'] = bsaSNPs['DAF_CI0005'] * -1
 
-    # Reorgnaize the columns
-    reorderColumns = ['CHROM', 'POS', 'REF', 'ALT', 'QUAL', fb_GT, fb_AD, fb_AD_REF, fb_AD_ALT, fb_LD, 'fb_ZScore', sm_fb_AD_ALT, fb_AF, fb_AF_CI0005, fb_AF_CI0995, fb_AF_CI, fb_GQ, sb_GT, sb_AD, sb_AD_REF, sb_AD_ALT, sb_LD, 'sb_ZScore', sm_sb_AD_ALT, sb_AF, sb_AF_CI0005, sb_AF_CI0995, sb_AF_CI, sb_GQ, 'Delta_AF', 'FEP', 'sm_FEP', 'GS', 'DAF_CI0005', 'DAF_CI0995', 'GS_CI0995', 'DAF_CI', 'GS_CI', 'STAT']
+    # Reorganize the columns
+    reorderColumns = ['CHROM', 'POS', 'REF', 'ALT', 'QUAL', fb_GT, fb_AD, fb_AD_REF, fb_AD_ALT, fb_LD, 'fb_ZScore', sm_fb_AD_ALT, fb_AF, fb_AF_CI0005, fb_AF_CI0995, fb_AF_CI, fb_GQ, sb_GT, sb_AD, sb_AD_REF, sb_AD_ALT, sb_LD, 'sb_ZScore', sm_sb_AD_ALT, sb_AF, sb_AF_CI0005, sb_AF_CI0995, sb_AF_CI, sb_GQ, 'Delta_AF', 'FE_P', 'sm_FE_P', 'G_S', 'DAF_CI0005', 'DAF_CI0995', 'GS_CI0995', 'DAF_CI', 'GS_CI', 'STAT']
 
-    # Remove unnecessary columns and reorgnaize the columns
-    # reorderColumns = ['CHROM', 'POS', 'REF', 'ALT', fb_GT, fb_AD_REF, fb_AD_ALT, fb_LD, 'fb_ZScore', sm_fb_AD_ALT, fb_GQ, sb_GT, sb_AD_REF, sb_AD_ALT, sb_LD, 'sb_ZScore', sm_sb_AD_ALT, sb_GQ, 'FEP', 'sm_FEP']
+    # Remove unnecessary columns and reorganize the columns
+    # reorderColumns = ['CHROM', 'POS', 'REF', 'ALT', fb_GT, fb_AD_REF, fb_AD_ALT, fb_LD, 'fb_ZScore', sm_fb_AD_ALT, fb_GQ, sb_GT, sb_AD_REF, sb_AD_ALT, sb_LD, 'sb_ZScore', sm_sb_AD_ALT, sb_GQ, 'FE_P', 'sm_FE_P']
 
     bsaSNPs = bsaSNPs[reorderColumns]
 
@@ -1120,7 +1136,7 @@ misc.append(['Average SNPs per sliding window', snpPerSW])
 misc.append([f'Average locus depth in bulk {fbID}', bsaSNPs[fb_LD].mean()])
 misc.append([f'Average locus depth in bulk {sbID}', bsaSNPs[sb_LD].mean()])
 
-# Calculate or retrieve the threshold. The threshoslds are normally in the range from 0.12 to 0.12666668
+# Calculate or retrieve the thresholds. The threshoslds are normally in the range from 0.12 to 0.12666668
 if os.path.isfile(os.path.join(path, 'Results', 'threshold.txt')) == False:
     if 'fisher' in sys.modules:
         thrshld = smThresholds_gw(bsaSNPs)[1]
@@ -1135,7 +1151,7 @@ else:
 
 # Identify likely trait-associated SNPs
 bsaSNPs = bsaSNPs.copy()
-bsaSNPs['sSNP'] = np.where(bsaSNPs['FEP'] < alpha, 1, 0)
+bsaSNPs['sSNP'] = np.where(bsaSNPs['FE_P'] < alpha, 1, 0)
 
 # Plot layout setup
 heightRatio = [1,0.8,0.8,0.8]
@@ -1160,7 +1176,7 @@ else:
 
 # fig.tight_layout(pad=0.15, rect=[0, 0.035, 1, 1])
 fig.subplots_adjust(top=0.9736, bottom=0.054, left=0.076, right=0.998, hspace=hGap, wspace=wGap)
-fig.suptitle('Genomic position (\u00D710 Mb)', y=0.002, ha='center', va='bottom')
+fig.suptitle(f'Genomic position ({xt_pro[2]})', y=0.002, ha='center', va='bottom')
 fig.text(0.001, 0.995, 'a', weight='bold', ha='left', va='top')
 fig.text(0.001, 0.680, 'b', weight='bold', ha='left', va='bottom')
 fig.text(0.001, 0.465, 'c', weight='bold', ha='left', va='bottom')
