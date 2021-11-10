@@ -58,6 +58,7 @@ def chrmFiltering(df, chromosomeList):
 
 
 def xticks_property(l):
+    # Automatically adjust xticks
     # Calculate distance between xticks and determine the tick unit
     lrgst_chrm_length = max(l)
     div_list = [500000000, 200000000, 100000000, 50000000, 20000000, 10000000, 5000000, 2000000, 1000000]
