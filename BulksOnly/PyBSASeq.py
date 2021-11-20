@@ -213,7 +213,7 @@ def gStatistic_Array(o1, o3, o2, o4):
     Calculate G-statistic using numpy arrays as input
     o1 - o4 are 4 numpy arrays of observed values that are greater than or equal to zero
     '''
-    # Ignore errors caused by 'Divide by zero' or logarithm of zero, let numpy.where to handle these situations
+    # Ignore errors caused by 'Divide by zero' or logarithm of zero, and let numpy.where to handle these situations
     np.seterr(all='ignore')
 
     # Calculate the expected values under the null hypothesis

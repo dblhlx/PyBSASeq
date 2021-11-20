@@ -16,10 +16,12 @@ from scipy.signal import savgol_filter
 
 def smAlleleFreq(popStruc, sizeOfBulk, rep):
     '''
-    An AA/Aa/aa individual carries 0%, 50%, and 100% of the alt (a) allele, respectively.
-    The AA:Aa:aa ratios are 0.25:0.5:0.25, 0.5:0:0.5, and 0.5:0.5:0, respectively, in a F2 
-    population, in a RIL population, and in a back crossed population if A/a does not affect 
-    the trait in the population (null hypothesis)
+    This function is for the calculation of the allele frequency in the bulks via simulation
+    under the null hypothesis.
+
+    An AA, Aa, and aa individual carries 0%, 50%, and 100% of the alt (a) allele, respectively.
+    If A/a is not associated with the trait (null hypothesis), the AA:Aa:aa ratios are 0.25:0.5:0.25, 0.5:0:0.5, 
+    and 0.5:0.5:0, respectively, in a F2 population, in a RIL population, and in a back crossed population.
     '''
     freqL = []
     pop = [0.0, 0.5, 1.0]
@@ -191,14 +193,20 @@ def snpFiltering(df):
 
 
 def gStatistic_Array(o1, o3, o2, o4):
-    # Calculate G-statistic using numpy array input
+    '''
+    Calculate G-statistic using numpy arrays as input
+    o1 - o4 are 4 numpy arrays of observed values that are greater than or equal to zero
+    '''
+    # Ignore errors caused by 'Divide by zero' or logarithm of zero, and let numpy.where to handle these situations
     np.seterr(all='ignore')
 
+    # Calculate the expected values under the null hypothesis
     e1 = np.where(o1+o2+o3+o4!=0, (o1+o2)*(o1+o3)/(o1+o2+o3+o4), 0)
     e2 = np.where(o1+o2+o3+o4!=0, (o1+o2)*(o2+o4)/(o1+o2+o3+o4), 0)
     e3 = np.where(o1+o2+o3+o4!=0, (o3+o4)*(o1+o3)/(o1+o2+o3+o4), 0)
     e4 = np.where(o1+o2+o3+o4!=0, (o3+o4)*(o2+o4)/(o1+o2+o3+o4), 0)
 
+    # Calculate the log-likelihood ratios
     llr1 = np.where(o1/e1>0, 2*o1*np.log(o1/e1), 0.0)
     llr2 = np.where(o2/e2>0, 2*o2*np.log(o2/e2), 0.0)
     llr3 = np.where(o3/e3>0, 2*o3*np.log(o3/e3), 0.0)
