@@ -227,7 +227,7 @@ def statisticsFE(row):
     sm_eb_Alt_Array = np.random.binomial(row[sb_LD], sb_Freq, rep)
     eb_LD_Array = np.full(rep, row[sb_LD])
 
-    # Create arrays of SNP indices and Δ(allele frequency) of a SNP
+    # Create simulated allele frequency and Δ(allele frequency) arrays of a SNP
     sm_yb_AF_Array = sm_yb_Alt_Array/yb_LD_Array
     sm_eb_AF_Array = sm_eb_Alt_Array/eb_LD_Array
     sm_DAF_Array = sm_eb_AF_Array - sm_yb_AF_Array
@@ -252,7 +252,7 @@ def statistics(row):
     sm_eb_Alt_Array = np.random.binomial(row[sb_LD], sb_Freq, rep)
     eb_LD_Array = np.full(rep, row[sb_LD])
 
-    # Create arrays of SNP indices and Δ(allele frequency) of a SNP
+    # Create simulated allele frequency and Δ(allele frequency) arrays of a SNP
     sm_yb_AF_Array = sm_yb_Alt_Array/yb_LD_Array
     sm_eb_AF_Array = sm_eb_Alt_Array/eb_LD_Array
     sm_DAF_Array = sm_eb_AF_Array - sm_yb_AF_Array
@@ -270,7 +270,7 @@ def statistics(row):
 
 
 def smThresholds_proximal(DF):
-    # Using this function for the calculation of the threshold if 'fisher' is not available
+    # Using this function to calculate the threshold if 'Fisher' is not available
     print('Calculate the threshold of sSNPs/totalSNPs.')
     ratioLi = []
     for __ in range(rep):
@@ -286,7 +286,7 @@ def smThresholds_proximal(DF):
 
 
 def smThresholds_gw(DF):
-    # For the calculation of the genome-wide threshold
+    # For the calculation of the genome-wide threshold if 'Fisher' is installed
     print('Calculate the threshold of sSNPs/totalSNPs.')
     gw_ratioLi = []
     for __ in range(rep):

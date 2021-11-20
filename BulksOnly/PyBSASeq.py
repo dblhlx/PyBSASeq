@@ -256,7 +256,7 @@ def statisticsFE(row):
     sm_eb_Alt_Array = np.random.binomial(row[sb_LD], sb_Freq, rep)
     eb_LD_Array = np.full(rep, row[sb_LD])
 
-    # Create arrays of allele frequencies and Δ(allele frequency)
+    # Create simulated allele frequency and Δ(allele frequency) arrays of a SNP
     sm_yb_AF_Array = sm_yb_Alt_Array/yb_LD_Array
     sm_eb_AF_Array = sm_eb_Alt_Array/eb_LD_Array
     sm_DAF_Array = sm_eb_AF_Array - sm_yb_AF_Array
@@ -286,7 +286,7 @@ def statistics(row):
     sm_eb_Alt_Array = np.random.binomial(row[sb_LD], sb_Freq, rep)
     eb_LD_Array = np.full(rep, row[sb_LD])
 
-    # Create arrays of SNP indices and Δ(allele frequency)
+    # Create simulated allele frequency and Δ(allele frequency) arrays of a SNP
     sm_yb_AF_Array = sm_yb_Alt_Array/yb_LD_Array
     sm_eb_AF_Array = sm_eb_Alt_Array/eb_LD_Array
     sm_DAF_Array = sm_eb_AF_Array - sm_yb_AF_Array
