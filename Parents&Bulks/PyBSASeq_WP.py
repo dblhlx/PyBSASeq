@@ -144,10 +144,11 @@ def snpFiltering(df):
     df_2ALT_Real.to_csv(os.path.join(filteringPath, '2altReal_Before.csv'), index=None)
 
     # Update the AD values of the above SNPs by removing the REF read that is zero (i.e. remove '0,' from '0,x,y')
-    df_2ALT_Real[fb_AD] = df_2ALT_Real[fb_AD].str.slice(start=2)
-    df_2ALT_Real[sb_AD] = df_2ALT_Real[sb_AD].str.slice(start=2)
-    df_2ALT_Real[['REF', 'ALT']] = df_2ALT_Real.ALT.str.split(',', expand=True)
-    df_2ALT_Real.to_csv(os.path.join(filteringPath, '2altReal_After.csv'), index=None)
+    if not df_2ALT_Real.empty:
+        df_2ALT_Real[fb_AD] = df_2ALT_Real[fb_AD].str.slice(start=2)
+        df_2ALT_Real[sb_AD] = df_2ALT_Real[sb_AD].str.slice(start=2)
+        df_2ALT_Real[['REF', 'ALT']] = df_2ALT_Real.ALT.str.split(',', expand=True)
+        df_2ALT_Real.to_csv(os.path.join(filteringPath, '2altReal_After.csv'), index=None)
 
     # Concatenate 1ALT_Real and 2ALT_Real
     snp = pd.concat([df_1ALT_Real, df_2ALT_Real])
