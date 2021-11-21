@@ -183,8 +183,8 @@ def snpFiltering(df):
     snp = snp.drop(index=snp_0LD.index)
 
     # Filter out SNPs in which GT and AD are not consistent
-    snp[[fb_GT_REF, fb_GT_ALT]] = snp[fb_GT].str.split('/', expand=True)
-    snp[[sb_GT_REF, sb_GT_ALT]] = snp[sb_GT].str.split('/', expand=True)
+    snp[[fb_GT_REF, fb_GT_ALT]] = snp[fb_GT].str.split('/|\|', expand=True)
+    snp[[sb_GT_REF, sb_GT_ALT]] = snp[sb_GT].str.split('/|\|', expand=True)
     gt_ad = snp[(snp[fb_GT_REF]==snp[fb_GT_ALT]) & (snp[sb_GT_REF]==snp[sb_GT_ALT]) & (snp[fb_GT_REF]==snp[sb_GT_REF])]
     snp = snp.drop(index=gt_ad.index)
     gt_ad.to_csv(os.path.join(filteringPath, 'gt_ad.csv'), index=None)
