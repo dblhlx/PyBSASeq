@@ -4,7 +4,7 @@ It is strongly recommended to have [fisher](https://github.com/brentp/fishers_ex
 **Citation**:
 If you used PyBSASeq in your pulications, please cite:
 - Zhang, J., Panthee, D.R. PyBSASeq: a simple and effective algorithm for bulked segregant analysis with whole-genome sequencing data. BMC Bioinformatics 21, 99 (2020). https://doi.org/10.1186/s12859-020-3435-8
-- Zhang, J., Panthee, D.R. Next-generation sequencing-based bulked segregant analysis without sequencing the parental genomes. G3 Genes|Genomes|Genetics, jkab400, https://doi.org/10.1093/g3journal/jkab400
+- Zhang, J., Panthee, D.R. Next-generation sequencing-based bulked segregant analysis without sequencing the parental genomes. G3 Genes|Genomes|Genetics, jkab400 (2021), https://doi.org/10.1093/g3journal/jkab400
 
 
 ### PyBSASeq
