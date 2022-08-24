@@ -8,7 +8,7 @@ If you used PyBSASeq in your pulications, please cite:
 
 
 ### PyBSASeq
-A novel algorithm with high detection power for BSA-Seq data analysis
+A novel algorithm with high detection power for BSA-Seq data analysis - the significant structural variant method
 
 Python 3.6 or above is required to run the script.
 
