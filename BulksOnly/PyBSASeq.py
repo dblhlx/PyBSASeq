@@ -16,12 +16,12 @@ from scipy.signal import savgol_filter
 
 def smAlleleFreq(popStruc, sizeOfBulk, rep):
     '''
-    This function is for the calculation of the allele frequency in the bulks via simulation
-    under the null hypothesis.
+    This function is for the calculation of the ALT allele frequency in the bulks via simulation
+    under the null hypothesis (the SNP is not associated with the trait).
 
     An AA, Aa, and aa individual carries 0%, 50%, and 100% of the alt (a) allele, respectively.
     If A/a is not associated with the trait (null hypothesis), the AA:Aa:aa ratios are 0.25:0.5:0.25, 0.5:0:0.5, 
-    and 0.5:0.5:0, respectively, in a F2 population, in a RIL population, and in a back crossed population.
+    and 0.5:0.5:0, respectively, in a F2 population, a RIL population, and a back crossed population.
     '''
     freqL = []
     pop = [0.0, 0.5, 1.0]
@@ -237,8 +237,10 @@ def statisticsFE(row):
     Perform Fisher's exact test for each SNP in the dataset using its actual AD values in both bulks, 
     and perform Fisher's exact test and estimate the thresholds of Δ(allele frequency) and G-statistic 
     value using its simulated AD values.
+    Each row in the dataset represents a SNP.
     This function will be used if the module 'Fisher' is not installed. It is slow for large dataset.
     '''
+    # Perform Fisher's exact test for each SNP using the actual REF/ALT reads
     try:
         fe = fisher_exact([[row[fb_AD_REF], row[fb_AD_ALT]], [row[sb_AD_REF], row[sb_AD_ALT]]])
     except TypeError:
@@ -276,8 +278,8 @@ def statisticsFE(row):
 
 def statistics(row):
     '''
-    Estimate the thresholds of Δ(allele frequency) and G-statistic value using its simulated AD values 
-    for each SNP in the dataset.
+    Estimate the thresholds of Δ(allele frequency) and G-statistic value using its simulated AD values for each SNP in the dataset.
+    Each row in the dataset represents a SNP.
     This function will be used if the module 'Fisher' is available.
     '''
     # Create an array with 10000 (rep) simulated ALT reads of a SNP - first bulk
@@ -306,25 +308,29 @@ def statistics(row):
 
 def smThresholds_proximal(DF):
     # Calculate the sSNP/totalSNP threshold via re-sampling if 'Fisher' is not installed
-    print('Calculate the threshold of sSNPs/totalSNPs.')
-    ratioLi = []        # List containing simulated sSNP/totalSNP ratios
+    print('Estimate the genome-wide thresholds of the sSNP/totalSNP, G-statistic, and \u0394(allele frequency).')
+    ratioLi, GSLi, DAFLi = [], [], []        # List containing simulated sSNP/totalSNP ratios
     for __ in range(rep):
         # Sample the number of SNPs equal to the average number of SNPs per sliding window
         sm_SNP_SMPL = DF.sample(snpPerSW, replace=True)
         # Identify sSNPs in the above SNP subset based on the simulated AD values
         sm_sSNP_SMPL = sm_SNP_SMPL[sm_SNP_SMPL['sm_FE_P']<smAlpha]
         ratioLi.append(len(sm_sSNP_SMPL.index)/snpPerSW)
+        GSLi.append(np.mean(gStatistic_Array(sm_SNP_SMPL[sm_fb_AD_REF], sm_SNP_SMPL[sm_fb_AD_ALT], sm_SNP_SMPL[sm_sb_AD_REF], sm_SNP_SMPL[sm_sb_AD_ALT])))
+        DAFLi.append(np.mean(np.absolute(sm_SNP_SMPL[sm_sb_AD_ALT]/sm_SNP_SMPL[sb_LD]-sm_SNP_SMPL[sm_fb_AD_ALT]/sm_SNP_SMPL[fb_LD])))
 
     misc.append(['Genome-wide sSNP/totalSNP ratio threshold', np.percentile(ratioLi, percentile_list)])
+    misc.append(['Genome-wide G-statistic threshold', np.percentile(GSLi, percentile_list)])
+    misc.append(['Genome-wide Delta(AF) threshold', np.percentile(DAFLi, percentile_list)])
     print(f'Threshold calculation completed, time elapsed: {(time.time()-t0)/60} minutes.')
 
-    return np.percentile(ratioLi, percentile_list)
+    return [np.percentile(ratioLi, percentile_list), np.percentile(GSLi, percentile_list), np.percentile(DAFLi, percentile_list)]
 
 
 def smThresholds_gw(DF):
     # Calculate the genome-wide sSNP/totalSNP threshold if 'Fisher' is available
-    print('Calculate the threshold of sSNPs/totalSNPs.')
-    gw_ratioLi = []     # List containing simulated sSNP/totalSNP ratios
+    print('Estimate of the genome-wide thresholds of the sSNP/totalSNP, G-statistic, and \u0394(allele frequency).')
+    gw_ratioLi, gw_GSLi, gw_DAFLi, = [], [], []     # List containing simulated sSNP/totalSNP ratios
     for __ in range(rep):
         # Sample the number of SNPs equal to the average number of SNPs per sliding window
         sm_SNP_SMPL = DF.sample(snpPerSW, replace=True)
@@ -340,22 +346,33 @@ def smThresholds_gw(DF):
 
         # Calculate the P-value of each SNP using the simulated AD values
         __, __, gw_sm_FE_P_Arr = pvalue_npy(gw_sm_fb_AD_ALT_Arr, gw_sm_fb_AD_REF_Arr, gw_sm_sb_AD_ALT_Arr, gw_sm_sb_AD_REF_Arr)
-        # gw_sm_FE_OR_Arr = (gw_sm_fb_AD_ALT_Arr * gw_sm_sb_AD_REF_Arr) / (gw_sm_fb_AD_REF_Arr * gw_sm_sb_AD_ALT_Arr)
+        # gw_sm_FE_OR_Arr = (gw_sm_fb_AD_ALT_Arr * gw_sm_sb_AD_REF_Arr)/(gw_sm_fb_AD_REF_Arr * gw_sm_sb_AD_ALT_Arr)
 
+        # Calculate sSNP/totalSNP ratio
         # Based on the above P-value array, create an array in which the sSNP has value 1 while the non-sSNP has value 0, 
         # and its mean is the simulated sSNP/totalSNP ratio of the above SNP subset
         sSNP_Arr = np.where(gw_sm_FE_P_Arr<smAlpha, 1, 0)
         gw_ratioLi.append(np.mean(sSNP_Arr))
 
+        # Calculate G-statistic
+        gw_GS_Arr = gStatistic_Array(gw_sm_fb_AD_REF_Arr, gw_sm_fb_AD_ALT_Arr, gw_sm_sb_AD_REF_Arr, gw_sm_sb_AD_ALT_Arr)
+        gw_GSLi.append(np.mean(gw_GS_Arr))
+
+        # Calculate allele frequency
+        gw_DAF_Arr = gw_sm_sb_AD_ALT_Arr/sm_SNP_SMPL[sb_LD] - gw_sm_fb_AD_ALT_Arr/sm_SNP_SMPL[fb_LD]
+        gw_DAFLi.append(np.mean(np.absolute(gw_DAF_Arr)))
+
     misc.append(['Genome-wide sSNP/totalSNP ratio threshold', np.percentile(gw_ratioLi, percentile_list)])
+    misc.append(['Genome-wide G-statistic threshold', np.percentile(gw_GSLi, percentile_list)])
+    misc.append(['Genome-wide Delta(AF) ratio threshold', np.percentile(gw_DAFLi, percentile_list)])
     print(f'Threshold calculation completed, time elapsed: {(time.time()-t0)/60} minutes.')
 
-    return np.percentile(gw_ratioLi, percentile_list)
+    return [np.percentile(gw_ratioLi, percentile_list), np.percentile(gw_GSLi, percentile_list), np.percentile(gw_DAFLi, percentile_list)]
 
 
 def smThresholds_sw(DF):
     # Calculate the sliding window-specific threshold
-    sw_ratioLi = []     # List containing simulated sSNP/totalSNP ratios
+    sw_ratioLi, sw_GSLi, sw_DAFLi = [], [], []     # List containing simulated sSNP/totalSNP ratios
 
     # Convert the LD columns of the sliding window to arrays
     sw_fb_LD_Arr = DF[fb_LD].to_numpy().astype(np.uint)
@@ -370,15 +387,24 @@ def smThresholds_sw(DF):
 
         # Calculate the P-value of each SNP using the simulated AD values
         __, __, sw_sm_FE_P_Arr = pvalue_npy(sw_sm_fb_AD_ALT_Arr, sw_sm_fb_AD_REF_Arr, sw_sm_sb_AD_ALT_Arr, sw_sm_sb_AD_REF_Arr)
-        # sw_sm_FE_OR_Arr = (sw_sm_fb_AD_ALT_Arr * sw_sm_sb_AD_REF_Arr) / (sw_sm_fb_AD_REF_Arr * sw_sm_sb_AD_ALT_Arr)
+        # sw_sm_FE_OR_Arr = (sw_sm_fb_AD_ALT_Arr * sw_sm_sb_AD_REF_Arr)/(sw_sm_fb_AD_REF_Arr*sw_sm_sb_AD_ALT_Arr)
 
+        # Calculate sSNP/totalSNP
         # Based on the above P-value array, create an array in which the sSNP has value 1 while the non-sSNP has value 0, 
         # and its mean is the simulated sSNP/totalSNP ratio of the sliding window
         sSNP_Arr = np.where(sw_sm_FE_P_Arr<smAlpha, 1, 0)
-
         sw_ratioLi.append(np.mean(sSNP_Arr))
 
-    return np.percentile(sw_ratioLi, percentile_list)
+        # Calculate G-statistic
+        sw_GS_Arr = gStatistic_Array(sw_sm_fb_AD_REF_Arr, sw_sm_fb_AD_ALT_Arr, sw_sm_sb_AD_REF_Arr, sw_sm_sb_AD_ALT_Arr)
+        sw_GSLi.append(np.mean(sw_GS_Arr))
+
+        # Calculate allele frequency
+        gw_DAF_Arr = sw_sm_sb_AD_ALT_Arr/sw_sb_LD_Arr - sw_sm_fb_AD_ALT_Arr/sw_fb_LD_Arr
+        sw_DAFLi.append(np.mean(np.absolute(gw_DAF_Arr)))
+
+
+    return [np.percentile(sw_ratioLi, percentile_list), np.percentile(sw_GSLi, percentile_list), np.percentile(sw_DAFLi, percentile_list)]
 
 
 def zeroSNP(li):
@@ -541,7 +567,7 @@ def bsaseqPlot(chrmIDL, datafr):
                 axs[3].set_ylabel('\u0394AF')
 
             # Plot sSNPs and total SNPs against their genomic positions
-            axs[0].plot(x, y, c='k')
+            axs[0].plot(x, y, c=curve_color)
             axs[0].plot(x, yT, c='b')
             if chrmID.isdigit() == True:
                 axs[0].set_title('Chr'+chrmID)
@@ -551,16 +577,16 @@ def bsaseqPlot(chrmIDL, datafr):
             # Plot sSNP/totalSNP, G-statistic, and Δ(allele frequency) against their genomic positions
             if smoothing == True:
                 # sSNPs/totalSNPs via Fisher's exact test
-                axs[1].plot(x, sg_yRatio, c='k')
+                axs[1].plot(x, sg_yRatio, c=curve_color)
 
                 # G-statistic
-                axs[2].plot(x, sg_y5, c='k')
-                axs[2].plot(x, sg_y6, c='r')
+                axs[2].plot(x, sg_y5, c=curve_color)
+                axs[2].plot(x, sg_y6, c=snp_threshold_color)
 
                 # Δ(allele frequency)
-                axs[3].plot(x, sg_y7, c='k')
-                axs[3].plot(x, sg_y8, c='r')
-                axs[3].plot(x, sg_y9, c='r')
+                axs[3].plot(x, sg_y7, c=curve_color)
+                # axs[3].plot(x, sg_y8, c=snp_threshold_color)
+                axs[3].plot(x, sg_y9, c=snp_threshold_color)
 
                 # sSNPs/totalSNPs plot via z-test
                 # axs[1].plot(x, sg_fb_ZRatio, c='c')
@@ -568,23 +594,25 @@ def bsaseqPlot(chrmIDL, datafr):
 
             else:
                 # sSNPs/totalSNPs via Fisher's exact test
-                axs[1].plot(x, yRatio, c='k')
+                axs[1].plot(x, yRatio, c=curve_color)
 
                 # G-statistic
-                axs[2].plot(x, y5, c='k')
-                axs[2].plot(x, y6, c='r')
+                axs[2].plot(x, y5, c=curve_color)
+                axs[2].plot(x, y6, c=snp_threshold_color)
 
                 # Δ(allele frequency)
-                axs[3].plot(x, y7, c='k')
-                axs[3].plot(x, y8, c='r')
-                axs[3].plot(x, y9, c='r')
+                axs[3].plot(x, y7, c=curve_color)
+                # axs[3].plot(x, y8, c=snp_threshold_color)
+                axs[3].plot(x, y9, c=snp_threshold_color)
 
                 # sSNPs/totalSNPs plot via z-test
                 # axs[1].plot(x, fb_ZRatio, c='c')
                 # axs[1].plot(x, sb_ZRatio, c='g')
 
             # Add the 99.5 percentile line as the threshold, x[-1] is the startpoint of the last sliding window of a chromosome
-            axs[1].plot([plotSP, x[-1]], [thrshld, thrshld], c='r')
+            axs[1].plot([plotSP, x[-1]], [thrshld_FE, thrshld_FE], c=sw_threshold_color)
+            axs[2].plot([plotSP, x[-1]], [thrshld_GS, thrshld_GS], c=sw_threshold_color)
+            axs[3].plot([plotSP, x[-1]], [thrshld_AF, thrshld_AF], c=sw_threshold_color)
             # axs[1].plot(x, smThresholds_sw, c='m')
 
         # Handle the plot with multiple columns (chromosomes)
@@ -602,7 +630,7 @@ def bsaseqPlot(chrmIDL, datafr):
                 axs[3,i-1].set_ylabel('\u0394AF')
 
             # Plot sSNP and totalSNPs against their genomic positions
-            axs[0,i-1].plot(x, y, c='k')
+            axs[0,i-1].plot(x, y, c=curve_color)
             axs[0,i-1].plot(x, yT, c='b')
             if chrmID.isdigit() == True:
                 axs[0,i-1].set_title('Chr'+chrmID)
@@ -612,39 +640,41 @@ def bsaseqPlot(chrmIDL, datafr):
             # Plot sSNP/totalSNP, G-statistic, and Δ(allele frequency) against their genomic positions
             if smoothing == True:
                 # sSNPs/totalSNPs via Fisher's exact test
-                axs[1,i-1].plot(x, sg_yRatio, c='k')
+                axs[1,i-1].plot(x, sg_yRatio, c=curve_color)
 
                 # G-statistic
-                axs[2,i-1].plot(x, sg_y5, c='k')
-                axs[2,i-1].plot(x, sg_y6, c='r')
+                axs[2,i-1].plot(x, sg_y5, c=curve_color)
+                axs[2,i-1].plot(x, sg_y6, c=snp_threshold_color)
 
                 # Δ(allele frequency)
-                axs[3,i-1].plot(x, sg_y7, c='k')
-                axs[3,i-1].plot(x, sg_y8, c='r')
-                axs[3,i-1].plot(x, sg_y9, c='r')
+                axs[3,i-1].plot(x, sg_y7, c=curve_color)
+                # axs[3,i-1].plot(x, sg_y8, c=snp_threshold_color)
+                axs[3,i-1].plot(x, sg_y9, c=snp_threshold_color)
 
                 # sSNPs/totalSNPs plot via z-test
                 # axs[1,i-1].plot(x, sg_fb_ZRatio, c='c')
                 # axs[1,i-1].plot(x, sg_sb_ZRatio, c='g')
             else:
                 # sSNPs/totalSNPs via Fisher's exact test
-                axs[1,i-1].plot(x, yRatio, c='k')
+                axs[1,i-1].plot(x, yRatio, c=curve_color)
                 
                 # G-statistic
-                axs[2,i-1].plot(x, y5, c='k')
-                axs[2,i-1].plot(x, y6, c='r')
+                axs[2,i-1].plot(x, y5, c=curve_color)
+                axs[2,i-1].plot(x, y6, c=snp_threshold_color)
 
                 # Δ(allele frequency)
-                axs[3,i-1].plot(x, y7, c='k')
-                axs[3,i-1].plot(x, y8, c='r')
-                axs[3,i-1].plot(x, y9, c='r')
+                axs[3,i-1].plot(x, y7, c=curve_color)
+                # axs[3,i-1].plot(x, y8, c=snp_threshold_color)
+                axs[3,i-1].plot(x, y9, c=snp_threshold_color)
 
                 # sSNPs/totalSNPs plot via z-test
                 # axs[1,i-1].plot(x, fb_ZRatio, c='c')
                 # axs[1,i-1].plot(x, sb_ZRatio, c='g')
 
             # Add the 99.5 percentile line as the threshold, x[-1] is the startpoint of the last sliding window of a chromosome
-            axs[1,i-1].plot([plotSP, x[-1]], [thrshld, thrshld], c='r')
+            axs[1,i-1].plot([plotSP, x[-1]], [thrshld_FE, thrshld_FE], c=sw_threshold_color)
+            axs[2,i-1].plot([plotSP, x[-1]], [thrshld_GS, thrshld_GS], c=sw_threshold_color)
+            axs[3,i-1].plot([plotSP, x[-1]], [thrshld_AF, thrshld_AF], c=sw_threshold_color)
             # axs[1, i-1].plot(x, smThresholds_sw, c='m')
 
         ratioPeakL.append(max(yRatio))
@@ -652,7 +682,7 @@ def bsaseqPlot(chrmIDL, datafr):
         # Identify genomic regions above the threshold
         zigzag = []     # List of peaks above the threshold
         # Handle the case in which an QTL is at the very begining of the chromosome
-        if swDict[i][0][6] >= thrshld:
+        if swDict[i][0][6] >= thrshld_FE:
             # Add the CHROM ID and the startpoint to the genomic region above the threshold
             snpRegion.append(swDict[i][0][:2])
             if swDict[i][0][6] >= swDict[i][1][6]:
@@ -662,24 +692,24 @@ def bsaseqPlot(chrmIDL, datafr):
 
         m = 0       # The index of the sliding window of a chromosome
         while m < len(swDict[i]) - 1:
-            if swDict[i][m][6] < thrshld and swDict[i][m+1][6] >= thrshld:
+            if swDict[i][m][6] < thrshld_FE and swDict[i][m+1][6] >= thrshld_FE:
                 # Add the CHROM ID and the startpoint to the genomic region above the threshold
                 snpRegion.append(swDict[i][m+1][:2])
                 numOfSWs = 1
-            elif swDict[i][m][6] >= thrshld:
+            elif swDict[i][m][6] >= thrshld_FE:
                 # A sliding window is considered as a peak if its sSNP/totalSNP is greater than or equal to the threshold and greater than those of the flanking sliding windows
                 if m >= 1 and max(swDict[i][m-1][6], swDict[i][m+1][6]) <= swDict[i][m][6]:
                     # Add a peak above the threshold to zigzag
                     zigzag.append(swDict[i][m][1:])
-                if swDict[i][m+1][6] > thrshld:
+                if swDict[i][m+1][6] > thrshld_FE:
                     numOfSWs += 1
-                elif swDict[i][m+1][6] < thrshld:
+                elif swDict[i][m+1][6] < thrshld_FE:
                     # Add the endpoint, all peaks, the number of sliding widows
                     snpRegion[-1].extend([swDict[i][m][1], zigzag, numOfSWs])
                     zigzag = []
             m += 1
         # Handle the case in which an QTL is nearby the end of the chromosome
-        if swDict[i][-1][6] >= thrshld:
+        if swDict[i][-1][6] >= thrshld_FE:
             snpRegion[-1].extend([swDict[i][-1][1], zigzag, numOfSWs])
 
         i += 1
@@ -737,7 +767,7 @@ def accurateThreshold_sw(l, df):
         sSNP, totalSNP = len(sSNP_PeakSW.index), len(peakSW.index)
         ratio = sSNP / totalSNP
 
-        peaks.append([subL[0], subL[1], int(peakSW[fb_LD].mean()), int(peakSW[sb_LD].mean()), sSNP, totalSNP, ratio, smThresholds_sw(peakSW)[1]])
+        peaks.append([subL[0], subL[1], int(peakSW[fb_LD].mean()), int(peakSW[sb_LD].mean()), sSNP, totalSNP, ratio, smThresholds_sw(peakSW)])
 
     headerResults = ['CHROM','sw_Str', fbID+'.AvgLD', sbID+'.AvgLD', 'sSNP', 'totalSNP', r'sSNP/totalSNP', 'Threshold']
     pd.DataFrame(peaks, columns=headerResults).to_csv(os.path.join(results, args.output), index=False)
@@ -752,7 +782,7 @@ def accurateThreshold_gw(l, df):
         sSNP, totalSNP = len(sSNP_PeakSW.index), len(peakSW.index)
         ratio = sSNP / totalSNP
 
-        peaks.append([subL[0], subL[1], int(peakSW[fb_LD].mean()), int(peakSW[sb_LD].mean()), sSNP, totalSNP, ratio, thrshld])
+        peaks.append([subL[0], subL[1], int(peakSW[fb_LD].mean()), int(peakSW[sb_LD].mean()), sSNP, totalSNP, ratio, thrshld_FE])
 
     headerResults = ['CHROM','sw_Str', fbID+'.AvgLD', sbID+'.AvgLD', 'sSNP', 'totalSNP', r'sSNP/totalSNP', 'Threshold']
     pd.DataFrame(peaks, columns=headerResults).to_csv(os.path.join(results, args.output), index=False)
@@ -776,17 +806,16 @@ ap.add_argument('-i', '--input', required=False, help='file name of the GATK4-ge
 ap.add_argument('-o', '--output', required=False, help='file name of the output csv file', default='BSASeq_WoP.csv')
 ap.add_argument('-b', '--bulksizes', required=False, help='bulk sizes: first_bulk,second_bulk', type=lambda s: [int(t) for t in s.split(',')], default='430,385')
 ap.add_argument('-p', '--popstrct', required=False, choices=['F2','RIL','BC'], help='population structure', default='F2')
-ap.add_argument('-v', '--pvalues', required=False, help='cutoff p-values: real_data,simulation', type=lambda s: [float(t) for t in s.split(',')], default='0.01,0.1')
+ap.add_argument('-v', '--pvalues', required=False, help='cutoff p-values: real_data,simulation', type=lambda s: [float(t) for t in s.split(',')], default='0.01,0.05')
 ap.add_argument('-r', '--replication', type=int, required=False, help='the number of replications for threshold calculation', default=10000)
 ap.add_argument('-s', '--slidingwindow', required=False, help='size,incremental_step', type=lambda s: [int(t) for t in s.split(',')], default='2000000,10000')
 ap.add_argument('-g', '--gaps', required=False, help='gaps between subplots: horizontal,vertical', type=lambda s: [float(t) for t in s.split(',')], default='0.028,0.056')
 ap.add_argument('-m', '--smoothing', required=False, help='smoothing parameters: window_len,polyorder', type=lambda s: [int(t) for t in s.split(',')], default='51,3')
 ap.add_argument('--smooth', type=bool, required=False, help='smooth the plot', default=False)
 ap.add_argument('-e', '--region', required=False, help='interested region(s): chrm,start,end', type=lambda s: [int(t) for t in s.split(',')], default='-1')
-ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SNPs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,6,-1')
+ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SNPs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,6,1')
 
 args = ap.parse_args()
-
 popStr = args.popstrct
 rep = args.replication
 fb_Size, sb_Size = args.bulksizes[0], args.bulksizes[1]
@@ -797,9 +826,11 @@ smoothing = args.smooth
 smthWL, polyOrder = args.smoothing[0], args.smoothing[1]
 region = args.region
 gqValue, minSNPs, hiReadFold, mrIndex = args.misc[0], args.misc[1], args.misc[2], args.misc[3]
+
 minFragSize = swSize + smthWL * incrementalStep     # Minimum chromosome size allowed
 additionalPeaks = ''
 percentile_list = [0.5, 99.5, 2.5, 97.5, 5.0, 95.0]
+curve_color, snp_threshold_color, sw_threshold_color = 'k', 'magenta', 'r'
 
 # Obtain the ALT allele frequencies in both bulks under the null hypothesis
 fb_Freq = smAlleleFreq(popStr, fb_Size, rep)
@@ -823,6 +854,9 @@ if inFile.endswith('.tsv'):
     separator = '\t'
 elif inFile.endswith('.csv'):
     separator = ','
+else:
+    print('The input file should be in the csv or tsv format and should contain the corresponding file extension (.csv ot .tsv)')
+    sys.exit()
 
 # Generte a SNP dataframe from the GATK4-generated tsv file
 snpRawDF = pd.read_csv(inFile, delimiter=separator, encoding='utf-8', dtype={'CHROM':str})
@@ -839,6 +873,7 @@ smallFrags = chrmCheck[2]
 
 # Print the chromosome list on the screen to let the user to select desired chromosome(s)
 rightInput = ''
+# No chromosomal region(s) were specified
 if region[0] == -1:
     if smallFrags != []:
         print('\nThe chromosomes/fragments below are filtered out because of their small sizes:')
@@ -880,8 +915,7 @@ if region[0] == -1:
     for ch in chrmIDL:
         chrmSzD[ch] = chrmSizeDict[ch]
         chrmSzL.append(chrmSizeDict[ch][1])
-
-# Handle the cases in which a chromosomal region is entered
+# Handle the cases in which one or more chromosomal regions are specified
 else:
     chrmSzD, chrmIDL, chrmSzL = {}, [], []
 
@@ -926,7 +960,7 @@ else:
 
 # Exit if chrmIDL is empty
 if chrmIDL == []:
-    print('No valid chromosome names were entered.')
+    print('No valid chromosomal names were entered.')
     sys.exit()
 
 xt_pro = xticks_property(chrmSzL)
@@ -1002,19 +1036,20 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
     # bsaSNPs = bsaSNPs[(bsaSNPs[fb_LD]>=30) & (bsaSNPs[sb_LD]>=30)]
 
     # Calculate z scores
-    bsaSNPs['fb_ZScore'] = (bsaSNPs[fb_AD_ALT] / bsaSNPs[fb_LD] - fb_Freq) * np.sqrt(bsaSNPs[fb_LD] / (fb_Freq * (1 - fb_Freq)))
-    bsaSNPs['sb_ZScore'] = (bsaSNPs[sb_AD_ALT] / bsaSNPs[sb_LD] - sb_Freq) * np.sqrt(bsaSNPs[sb_LD] / (sb_Freq * (1 - fb_Freq)))
+    bsaSNPs['fb_ZScore'] = (bsaSNPs[fb_AD_ALT]/bsaSNPs[fb_LD]-fb_Freq)*np.sqrt(bsaSNPs[fb_LD]/(fb_Freq*(1-fb_Freq)))
+    bsaSNPs['sb_ZScore'] = (bsaSNPs[sb_AD_ALT]/bsaSNPs[sb_LD]-sb_Freq)*np.sqrt(bsaSNPs[sb_LD]/(sb_Freq*(1-fb_Freq)))
 
     # Calculate simulated ALT reads for each SNP under null hypothesis
     bsaSNPs[sm_fb_AD_ALT] = np.random.binomial(bsaSNPs[fb_LD], fb_Freq)
-    bsaSNPs[sm_fb_AD_REF] = bsaSNPs[fb_LD] - bsaSNPs[sm_fb_AD_ALT]
+    bsaSNPs[sm_fb_AD_REF] = bsaSNPs[fb_LD]-bsaSNPs[sm_fb_AD_ALT]
     bsaSNPs[sm_sb_AD_ALT] = np.random.binomial(bsaSNPs[sb_LD], sb_Freq)
-    bsaSNPs[sm_sb_AD_REF] = bsaSNPs[sb_LD] - bsaSNPs[sm_sb_AD_ALT]
+    bsaSNPs[sm_sb_AD_REF] = bsaSNPs[sb_LD]-bsaSNPs[sm_sb_AD_ALT]
 
     # Calculate allele frequency and Δ(allele frequency)
     bsaSNPs[fb_AF] = bsaSNPs[fb_AD_ALT]/bsaSNPs[fb_LD]
     bsaSNPs[sb_AF] = bsaSNPs[sb_AD_ALT]/bsaSNPs[sb_LD]
-    bsaSNPs['Delta_AF'] = bsaSNPs[sb_AF] - bsaSNPs[fb_AF]
+    # bsaSNPs['Delta_AF'] = bsaSNPs[sb_AF]-bsaSNPs[fb_AF]
+    bsaSNPs['Delta_AF'] = (bsaSNPs[sb_AF]-bsaSNPs[fb_AF]).abs()
 
     # Calculate G-statistic
     bsaSNPs['G_S'] = gStatistic_Array(bsaSNPs[fb_AD_REF], bsaSNPs[fb_AD_ALT], bsaSNPs[sb_AD_REF], bsaSNPs[sb_AD_ALT])
@@ -1022,7 +1057,7 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
     try:
         from fisher import pvalue_npy
         # Convert the AD columns to arrays
-        print('Perform Fisher\'s exact test.')
+        print('Perform Fisher\'s exact test on each SNP.')
         fb_AD_ALT_Arr = bsaSNPs[fb_AD_ALT].to_numpy(dtype=np.uint)
         fb_AD_REF_Arr = bsaSNPs[fb_AD_REF].to_numpy(dtype=np.uint)
         sb_AD_ALT_Arr = bsaSNPs[sb_AD_ALT].to_numpy(dtype=np.uint)
@@ -1051,6 +1086,7 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
 
     except ImportError:
         from scipy.stats import fisher_exact
+        print('Perform Fisher\'s exact test on each SNP')
         print('Looks like the module \'Fisher\' (https://github.com/brentp/fishers_exact_test) is not installed on your computer. Running the script would take much shorter time with this module installed.')
         # Obtain the FE test P-values, the simulate P-values, and the thresholds of G-statistic and Δ(allele frequency)
         bsaSNPs['STAT'] = bsaSNPs.apply(statisticsFE, axis=1)
@@ -1079,12 +1115,13 @@ if os.path.isfile(os.path.join(path, 'Results', 'COMPLETE.txt')) == False:
         bsaSNPs['DAF_CI0995'] = bsaSNPs['DAF_CI0995'] * -1
         bsaSNPs['DAF_CI0005'] = bsaSNPs['DAF_CI0005'] * -1
 
-    # Reorganize the columns
+    # Constructing bsaSNPs_1 to make the saved file smaller via eliminating some fields that can be easily calculated.
+    # Reorganize the columns.
     reorderColumns = ['CHROM', 'POS', 'REF', 'ALT', 'QUAL', fb_GT, fb_AD, fb_AD_REF, fb_AD_ALT, fb_LD, 'fb_ZScore', sm_fb_AD_ALT, fb_AF, fb_AF_CI0005, fb_AF_CI0995, fb_AF_CI, fb_GQ, sb_GT, sb_AD, sb_AD_REF, sb_AD_ALT, sb_LD, 'sb_ZScore', sm_sb_AD_ALT, sb_AF, sb_AF_CI0005, sb_AF_CI0995, sb_AF_CI, sb_GQ, 'Delta_AF', 'FE_P', 'sm_FE_P', 'G_S', 'DAF_CI0005', 'DAF_CI0995', 'GS_CI0995', 'DAF_CI', 'GS_CI', 'STAT']
     # Remove unnecessary columns and reorganize the columns
     # reorderColumns = ['CHROM', 'POS', 'REF', 'ALT', fb_GT, fb_AD_REF, fb_AD_ALT, fb_LD, 'fb_ZScore', sm_fb_AD_ALT, fb_GQ, sb_GT, sb_AD_REF, sb_AD_ALT, sb_LD, 'sb_ZScore', sm_sb_AD_ALT, sb_GQ, 'FE_P', 'sm_FE_P']
-    bsaSNPs = bsaSNPs[reorderColumns]
-    bsaSNPs.to_csv(oiFile, index=None)
+    bsaSNPs_1 = bsaSNPs[reorderColumns]
+    bsaSNPs_1.to_csv(oiFile, index=None)
 
     with open(os.path.join(path, 'Results', 'COMPLETE.txt'), 'w') as xie:
         xie.write('Statistical calculation is completed!')
@@ -1122,15 +1159,24 @@ misc.append([f'Average locus depth in bulk {sbID}', bsaSNPs[sb_LD].mean()])
 # Calculate or retrieve the threshold. The thresholds are normally in the range from 0.12 to 0.12666668
 if os.path.isfile(os.path.join(path, 'Results', 'threshold.txt')) == False:
     if 'fisher' in sys.modules:
-        thrshld = smThresholds_gw(bsaSNPs)[1]
+        thrshlds = smThresholds_gw(bsaSNPs)
+        thrshld_FE = thrshlds[0][1]
+        thrshld_GS = thrshlds[1][1]
+        thrshld_AF = thrshlds[2][1]
     else:
-        thrshld = smThresholds_proximal(bsaSNPs)[1]
+        thrshlds = smThresholds_proximal(bsaSNPs)
+        thrshld_FE = thrshlds[0][1]
+        thrshld_GS = thrshlds[1][1]
+        thrshld_AF = thrshlds[2][1]
 
     with open(os.path.join(path, 'Results', 'threshold.txt'), 'w') as xie:
-        xie.write(str(thrshld))
+        xie.write(str(thrshld_FE) + ' ' + str(thrshld_GS) + ' ' + str(thrshld_AF))
 else:
     with open(os.path.join(path, 'Results', 'threshold.txt'), 'r') as du:
-        thrshld = float(du.readline().strip())
+        temp = du.readline().strip().split(' ')
+        thrshld_FE = float(temp[0])
+        thrshld_GS = float(temp[1])
+        thrshld_AF = float(temp[2])
 
 # Identify likely trait-associated SNPs
 bsaSNPs['sSNP'] = np.where(bsaSNPs['FE_P'] < alpha, 1, 0)
