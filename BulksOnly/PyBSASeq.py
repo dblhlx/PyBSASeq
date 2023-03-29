@@ -1229,7 +1229,7 @@ if additionalPeaks.lower() == 'yes':
                 for row in peakSW.itertuples():
                     peaklst.append([row.CHROM, row.sw_Str])
 
-peaklst = sorted(peaklst, key = lambda x: (int(x[0]), int(x[1])))
+# peaklst = sorted(peaklst, key = lambda x: (int(x[0]), int(x[1])))
 
 try:
     accurateThreshold_sw(peaklst, bsaSNPs)
