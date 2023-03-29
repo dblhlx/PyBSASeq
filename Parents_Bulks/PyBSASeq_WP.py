@@ -1541,7 +1541,7 @@ else:
     else:
         peaklst = pkList(sv_region)
 
-    peaklst = sorted(peaklst, key = lambda x: (int(x[0]), int(x[1])))
+    # peaklst = sorted(peaklst, key = lambda x: (int(x[0]), int(x[1])))
 
     if 'fisher' not in sys.modules:
         try:
