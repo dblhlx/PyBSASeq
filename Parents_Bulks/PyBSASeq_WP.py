@@ -71,13 +71,18 @@ def select_chrms(df, rgn):
         print(small_frags, '\n')
 
     dsrd_chrm_list, dsrd_chrm_size_dict, dsrd_chrm_size_list = [], {}, []
-    right_input = ''
     # if selected_chrms == None:         # Create chromosome list only once
     # Chromosomal region arguments are specified
     if rgn[0] == -1:
         print(f'The chromosomes below are greater than {min_frag_size} bp and are suitable for BSA-Seq analysis:')
         print(chrm_id_list,'\n')
         print('Although a subset of the above chromosomes can be selected for analysis in next step, it is strongly recommended to have all the chromosomes included when running the script the first time.\n')
+
+        if mr == False:
+            right_input = 'yes'
+            dsrd_chrm_list = chrm_id_list
+        else:
+            right_input = 'no'
 
         while right_input.lower() != 'yes':
             input_string = input('Enter the names of the desired chromosomes for analysis in order and separate each name with a comma, or press the ENTER/RETURN key if the above list is what you want:\n')
@@ -1112,10 +1117,12 @@ ap.add_argument('-s', '--slidingwindow', required=False, help='size,incremental_
 ap.add_argument('-g', '--gaps', required=False, help='gaps between subplots: horizontal,vertical', type=lambda s: [float(t) for t in s.split(',')], default='0.028,0.056,0.0264,0.054,0.076,0.002,0.002')
 ap.add_argument('-m', '--smoothing', required=False, help='smoothing parameters: window_len,polyorder', type=lambda s: [int(t) for t in s.split(',')], default='51,3')
 ap.add_argument('--smooth', type=bool, required=False, help='smooth the plot', default=True)
+ap.add_argument('--chromosome_order', type=bool, required=False, help='manually set chromosome order', default=False)
 ap.add_argument('-e', '--region', required=False, help='interested region(s): chrm,start,end', type=lambda s: [int(t) for t in s.split(',')], default='-1')
 ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SVs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,6,1')
 
 args = ap.parse_args()
+mr = args.chromosome_order
 input_files = args.input
 pop_struct = args.popstruct
 rep = args.replication
