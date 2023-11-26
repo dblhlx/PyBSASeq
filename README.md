@@ -13,7 +13,7 @@ A novel algorithm with high detection power for BSA-Seq data analysis - the sign
 Python 3.6 or above is required to run the script.
 
 #### Usage
-If only the bulk genomes were sequenced, use the script in the folder /BulksOnly; if the genomes of both the bulks and the parents were sequenced, use the script in the folder /Parents&Bulks.
+If only the bulk genomes were sequenced, use the script in the folder /BulksOnly; if the genomes of both the bulks and the parents were sequenced, use the script in the folder /Parents_Bulks.
 
 #### Workflow
 1. SNP filtering
