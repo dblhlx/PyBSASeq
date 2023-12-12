@@ -43,7 +43,7 @@ Four files (sliding_windows.csv, sv_fagz.csv, sv_fagz_fep.csv, and threshold.txt
 
 The default values for a, b, c, d, e, and f are 0.028, 0.056, 0.0264, 0.054, 0.076, 0.002, 0.002, respectively. I ususally change the values of `a` and/or `b`. This process is very fast by using the `sliding_windows.csv` and `threshold.txt` files.
 
-If two or more peaks and all the values in between are greater than the threshold, these peaks would be recognized as a single peak. The positions of the other peaks can be identified and their significance can be verified using the option below.
+If two or more peaks/valleys and all the values in between are beyond the confidence intervals/threshold, only the highest peak or the lowerest valley will be identified as the peak/valley of this region. The positions of the other peaks/valleys can be identified and their significance can be verified using the option below.
 
 `-e a1,b1,c1,a2,b2,c2,......,an,bn,cn`
 
