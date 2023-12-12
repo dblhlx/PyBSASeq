@@ -15,6 +15,45 @@ Python 3.6 or above is required to run the script.
 #### Usage
 If only the bulk genomes were sequenced, use the script in the folder /BulksOnly; if the genomes of both the bulks and the parents were sequenced, use the script in the folder /Parents_Bulks.
 
+`$ python PyBSASeq.py -i input -o output -p popstrct -b fbsize,sbsize`
+
+Here are the details of the options used in the script:
+- input – the names of the input files (the GATK4-generated tsv/csv file). If you have variant calling data from both theparents and the bulks, the format is as follows: parents.tsv,bulks.tsv. If you have only the variant calling data of the bulks, the format is as follows: bulks.tsv. The script and the input files should be in the same folder.
+- output – the name of the output file
+- popstrct – population structure; three choices available: F2 for an F2 population, RIL for a population of recombinant inbred lines, or BC for a backcross population
+- fbsize – the number of individuals in the first bulk
+- sbsize – the number of individuals in the second bulk
+
+The default cutoff p-value for identifying significant structural variants (sSV) from the SV dataset is 0.01 (alpha), and the default cutoff p-value for identifying sSVs from the simulated dataset is 0.01 (smalpha). These values can be changed using the following options:
+
+`-v alpha,smalpha`
+
+alpha and smalpha should be in the range of 0.0 – 1.0, the chosen value should make statistical sense. The greater the smalpha value, the higher the threshold and the lower the false positive rate.
+
+The default size of the sliding window is 2000000 (base pairs) and the incremental step is 10000 (base pairs), and their values can be changed using the following option:
+
+`-s slidingWindowSize,incrementalStep`
+
+Four files (sliding_windows.csv, sv_fagz.csv, sv_fagz_fep.csv, and threshold.txt) and a folder containing BSASeq.csv and BSASeq.pdf will be generated in the `./Results` folder after succesfully running the script. You may find that gaps between subplots in BSASeq.pdf are too wide or too narrow. You can finetune the gaps using the option below:
+
+`-a True -g a,b,c,d,e,f`
+
+- a - the horizontal gap
+- b - the vertical gap
+- c, d, e, and f - the top, bottom, left, and right margins, respectively
+
+The default values for a, b, c, d, e, and f are 0.028, 0.056, 0.0264, 0.054, 0.076, 0.002, 0.002, respectively. I ususally change the values of `a` and/or `b`. This process is very fast by using the `sliding_windows.csv` and `threshold.txt` files.
+
+If two or more peaks and all the values in between are greater than the threshold, these peaks would be recognized as a single peak. The positions of other peaks can be identified and their significance can be verified using the option below.
+
+`-e a1,b1,c1,a2,b2,c2,......,an,bn,cn`
+
+- a - chromosome id
+- b - the start point of a chromosomal fragment
+- c - the end point of a chromosomal fragment
+
+Chromosome IDs should be digits, and use 1000 - 1005 to represent sex chromosomes X, Y, Z, W, U, and V
+
 #### Workflow
 1. SNP filtering
 2. Perform Fisher's exact test using the AD values of each SNP in both bulks. A SNP would be identified as an sSNP if its p-value is less than alpha. In the meantime, simulated REF/ALT reads of each SNP is obtained via simulation under null hypothesis, and Fisher's exact test is also performed using these simulated AD values; for each SNP, it would be an sSNP if its p-value is less than smalpha. Identification of sSNPs from the simulated dataset is for threshold calculation. A file named "COMPLETE.txt" will be writen to the working directory if Fisher's exact test is successful, and the results of Fisher's exact test are saved in a .csv file. The "COMPLETE.txt" file needs to be deleted in case starting over is desired. 

@@ -11,6 +11,7 @@ import csv
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import ttest_rel
 from scipy.signal import savgol_filter
 
 
@@ -23,7 +24,7 @@ def sm_allelefreq(pop_struc, bulk_size, rep):
     If A/a is not associated with the trait (null hypothesis), the AA:Aa:aa ratios are 0.25:0.5:0.25, 0.5:0:0.5, 
     and 0.5:0.5:0, respectively, in a F2 population, a RIL population, and a back crossed population.
     '''
-    freqL = []
+    freq_list = []
     pop = [0.0, 0.5, 1.0]
 
     if pop_struc == 'F2':
@@ -34,87 +35,112 @@ def sm_allelefreq(pop_struc, bulk_size, rep):
         prob = [0.5, 0.5, 0.0]
 
     for __ in range(rep):
-        altFreq = np.random.choice(pop, bulk_size, p=prob).mean()
-        freqL.append(altFreq)
+        alt_freq = np.random.choice(pop, bulk_size, p=prob).mean()
+        freq_list.append(alt_freq)
 
-    return sum(freqL)/len(freqL)
+    return sum(freq_list)/len(freq_list)
+
+
+def sort_chrm(l):
+    a, b = [], []
+
+    for eml in l:
+        if eml.isdigit():
+            a.append(eml)
+        else:
+            b.append(eml)
+    a.sort(key=int)
+    b.sort()
+    a.extend(b)
+    return a
 
 
 def chrm_filtering(df, chromosome_list):
     # Many reference genomes contain unmapped fragments that tend to be small and are not informative for SV-trait association, filtering them out makes the chromosome list more readable.
-    all_chrm_size_dict, all_chrm_list, small_chrm_list = {}, [], []
+    all_chrm_range, all_chrm_ids, small_chrm_ids = [], [], []
     for chrm in chromosome_list:
         chrm_size = df[df.CHROM==chrm]['POS'].max()
 
         if chrm_size <= min_frag_size:
-            small_chrm_list.append(chrm)
+            small_chrm_ids.append(chrm)
         else:
-            all_chrm_size_dict[chrm] = [1, chrm_size]       # Startpoint and endpoint
-            all_chrm_list.append(chrm)
+            all_chrm_ids.append(chrm)
+            all_chrm_range.append([1, chrm_size])       # Startpoint and endpoint
 
-    return [all_chrm_size_dict, all_chrm_list, small_chrm_list]
+    return [all_chrm_ids, all_chrm_range, small_chrm_ids]
 
 
 def select_chrms(df, rgn):
     # Create a chromosome list, which can be very long because of the unmapped fragments
-    raw_chrm_list = df['CHROM'].unique().tolist()
+    raw_chrm_ids_ori = df['CHROM'].unique().tolist()
+    raw_chrm_ids = sort_chrm(raw_chrm_ids_ori)
 
     # Filter out chromosomes and unmapped fragments smaller than the sliding window
     # Make the chromosome list more readable and meaningful
-    chrm_id_size = chrm_filtering(df, raw_chrm_list)
-    chrm_size_dict = chrm_id_size[0]
-    chrm_id_list = chrm_id_size[1]
-    small_frags = chrm_id_size[2]
+    chrm_id_range = chrm_filtering(df, raw_chrm_ids)
+    chrm_ids = chrm_id_range[0]
+    chrm_range = chrm_id_range[1]
+    small_frags = chrm_id_range[2]
 
     if small_frags != []:
         print('\nThe chromosomes/fragments below are filtered out because of their small sizes:')
         print(small_frags, '\n')
 
-    dsrd_chrm_list, dsrd_chrm_size_dict, dsrd_chrm_size_list = [], {}, []
+    dsrd_chrm_ids, dsrd_chrm_range, dsrd_chrm_sizes = [], [], []
     # if selected_chrms == None:         # Create chromosome list only once
     # Chromosomal region arguments are specified
     if rgn[0] == -1:
         print(f'The chromosomes below are greater than {min_frag_size} bp and are suitable for BSA-Seq analysis:')
-        print(chrm_id_list,'\n')
+        print(chrm_ids,'\n')
         print('Although a subset of the above chromosomes can be selected for analysis in next step, it is strongly recommended to have all the chromosomes included when running the script the first time.\n')
 
-        if mr == False:
-            right_input = 'yes'
-            dsrd_chrm_list = chrm_id_list
+        if chrm_order == False:
+            dsrd_chrm_ids = chrm_ids
         else:
-            right_input = 'no'
+        # while right_input.lower() != 'yes':
+        #     input_string = input('Enter the names of the desired chromosomes for analysis in order and separate each name with a comma, or press the ENTER/RETURN key if the above list is what you want:\n')
+        #     if input_string == '':
+        #         dsrd_chrm_ids = chrm_ids
+        #     else:
+        #         dsrd_chrm_ids = [x.strip() for x in input_string.split(',')]
 
-        while right_input.lower() != 'yes':
-            input_string = input('Enter the names of the desired chromosomes for analysis in order and separate each name with a comma, or press the ENTER/RETURN key if the above list is what you want:\n')
-            if input_string == '':
-                dsrd_chrm_list = chrm_id_list
-            else:
-                dsrd_chrm_list = [x.strip() for x in input_string.split(',')]
-
-            print('Invalid chromosome names, if any, will be removed.\n')
+        #     print('Invalid chromosome names, if any, will be removed.\n')
 
             # Filter out possible invalid chromosome name(s)
-            invalid_chrm_list = []
-            for ch in dsrd_chrm_list:
-                if ch not in chrm_id_list:
+            invalid_chrm_list, frags = [], []
+            for ch in chrm_order:
+                if ch not in chrm_ids:
                     invalid_chrm_list.append(ch)
+                elif ch in small_frags:
+                    frags.append(ch)    
 
             if invalid_chrm_list != []:
                 print('These chromosome names are invalid:', invalid_chrm_list,'\n')
+                for ch in invalid_chrm_list:
+                    chrm_order.remove(ch)
+            if frags != []:
+                print(f'The chromosomes below are less than {min_frag_size} bp and are not suitable for BSA-Seq analysis:')
+                print(frags,'\n')
+                for ch in frags:
+                    chrm_order.remove(ch)
 
-            for ch in invalid_chrm_list:
-                dsrd_chrm_list.remove(ch)
+            dsrd_chrm_ids = chrm_order
 
             print('Chromosomes for analysis:')
-            print(dsrd_chrm_list,'\n')
+            print(dsrd_chrm_ids,'\n')
 
-            right_input = input('Are the chromosome names in the above list in the right order (yes or no)?\n')
-            print('\n')
+            # right_input = input('Are the chromosome names in the above list in the right order (yes or no)?\n')
+            # print('\n')
 
         # Create dictionary/list containing the sizes of all the chromosomes
-        for ch in dsrd_chrm_list:
-            dsrd_chrm_size_dict[ch] = chrm_size_dict[ch]
-            dsrd_chrm_size_list.append(chrm_size_dict[ch][1])
+        i = 0
+        for ch in chrm_ids:
+            if ch in dsrd_chrm_ids:
+                temp = chrm_range[i]
+                dsrd_chrm_range.append(temp)
+                dsrd_chrm_sizes.append(temp[1])
+            i += 1
+
     # Handle the cases in which one or more chromosomal regions are specified
     else:
         l, n = len(rgn), len(rgn) % 3
@@ -123,7 +149,7 @@ def select_chrms(df, rgn):
             print('Each chromosome name should be followed by the starting and ending points of the interested region.')
 
         i = 0
-        while i < len(rgn):
+        while i < l:
             if rgn[i] == 1000:
                 ch_id = 'X'
             elif rgn[i] == 1001:
@@ -139,24 +165,25 @@ def select_chrms(df, rgn):
             else:
                 ch_id = str(rgn[i])
 
-            if ch_id not in chrm_id_list:
+            if ch_id not in chrm_ids:
                 print(ch_id, 'is not a valid chromosome name.')
             else:
+                temp_chrm_size = chrm_range[chrm_ids.index(ch_id)][1]
                 if rgn[i+1] < 1:
                     rgn[i+1] = 1
-                if rgn[i+2] > chrm_size_dict[ch_id][1]:
-                    rgn[i+2] = chrm_size_dict[ch_id][1]
+                if rgn[i+2] > temp_chrm_size:
+                    rgn[i+2] = temp_chrm_size
 
                 if rgn[i+2] - rgn[i+1] > min_frag_size:
-                    dsrd_chrm_size_dict[ch_id] = [rgn[i+1], rgn[i+2]]
-                    dsrd_chrm_list.append(ch_id)
-                    dsrd_chrm_size_list.append(rgn[i+2]-rgn[i+1])
+                    dsrd_chrm_ids.append(ch_id)
+                    dsrd_chrm_range.append([rgn[i+1], rgn[i+2]])
+                    dsrd_chrm_sizes.append(rgn[i+2]-rgn[i+1]+1)
                 else:
                     print(f'The size of the interested region on chromosome {ch_id} should be greater than ', {min_frag_size}, 'bp.')
 
             i += 3
 
-    return [dsrd_chrm_list, dsrd_chrm_size_dict, dsrd_chrm_size_list]
+    return [dsrd_chrm_ids, dsrd_chrm_range, dsrd_chrm_sizes]
 
 
 def bulk_names(df):
@@ -212,7 +239,7 @@ def xticks_property(l):
 
 
 def sv_filtering(df):
-    print('Perform SV filtering for the sequencing data of the', smpl)
+    print('Perform SV filtering for the sequencing data of the', sample)
     df = df.copy()
 
     # Identify SVs not informative and remove these SVs from the dataframe
@@ -294,8 +321,8 @@ def sv_filtering(df):
     snp = snp.drop(index=snp_0ld.index)
 
     # Filter out SVs in which GT and AD are not consistent
-    snp[[fb_gt_ref, fb_gt_alt]] = snp[fb_gt].str.split('/|\|', expand=True)
-    snp[[sb_gt_ref, sb_gt_alt]] = snp[sb_gt].str.split('/|\|', expand=True)
+    snp[[fb_gt_ref, fb_gt_alt]] = snp[fb_gt].str.split('/|\\|', expand=True)
+    snp[[sb_gt_ref, sb_gt_alt]] = snp[sb_gt].str.split('/|\\|', expand=True)
     gt_ad = snp[(snp[fb_gt_ref]==snp[fb_gt_alt]) & (snp[sb_gt_ref]==snp[sb_gt_alt]) & (snp[fb_gt_ref]==snp[sb_gt_ref])]
     snp = snp.drop(index=gt_ad.index)
     gt_ad.to_csv(os.path.join(filtering_path, 'gt_ad.csv'), index=None)
@@ -415,28 +442,28 @@ def statistics(row):
 def sm_thresholds_gw_proximal(df):
     # Using this function to calculate the threshold if 'Fisher' is not available
     print('Estimate of the genome-wide thresholds of the sSV/totalSV, G-statistic, and \u0394(allele frequency).')
-    ratio_list, gs_list, daf_list = [], [], []
+    ratio_list, gs_list, daf_list, daf_list_abs = [], [], [], []
     for __ in range(rep):
         sm_sv_smpl = df.sample(sv_per_sw, replace=True)
         sm_ssv_smpl = sm_sv_smpl[sm_sv_smpl['sm_FE_P']<sm_alpha]
 
         ratio_list.append(len(sm_ssv_smpl.index)/sv_per_sw)
         gs_list.append(np.mean(g_statistic_array(sm_sv_smpl[sm_fb_ad_ref], sm_sv_smpl[sm_fb_ad_alt], sm_sv_smpl[sm_sb_ad_ref], sm_sv_smpl[sm_sb_ad_alt])))
-        # daf_list.append(np.mean(np.absolute(sm_sv_smpl[sm_sb_ad_alt]/sm_sv_smpl[sb_ld]-sm_sv_smpl[sm_fb_ad_alt]/sm_sv_smpl[fb_ld])))
         daf_list.append(np.mean(sm_sv_smpl[sm_sb_ad_alt]/sm_sv_smpl[sb_ld]-sm_sv_smpl[sm_fb_ad_alt]/sm_sv_smpl[fb_ld]))
+        daf_list_abs.append(np.mean(np.absolute(sm_sv_smpl[sm_sb_ad_alt]/sm_sv_smpl[sb_ld]-sm_sv_smpl[sm_fb_ad_alt]/sm_sv_smpl[fb_ld])))
 
     misc.append(['Genome-wide sSV/totalSV ratio threshold', np.percentile(ratio_list, percentile_list)])
     misc.append(['Genome-wide G-statistic threshold', np.percentile(gs_list, percentile_list)])
     misc.append(['Genome-wide Delta(AF) threshold', np.percentile(daf_list, percentile_list)])
     print(f'Threshold calculation completed, time elapsed: {(time.time()-t0)/60} minutes.')
 
-    return [np.percentile(ratio_list, percentile_list), np.percentile(gs_list, percentile_list), np.percentile(daf_list, percentile_list)]
+    return [np.percentile(ratio_list, percentile_list), np.percentile(gs_list, percentile_list), np.percentile(daf_list, percentile_list), np.percentile(daf_list_abs, percentile_list)]
 
 
 def sm_thresholds_gw(df):
     # For the calculation of the genome-wide threshold if 'Fisher' is installed
     print('Estimate the genome-wide thresholds of the sSV/totalSV, G-statistic, and \u0394(allele frequency).')
-    gw_ratio_list, gw_gs_list, gw_daf_list, = [], [], []
+    gw_ratio_list, gw_gs_list, gw_daf_list, gw_daf_abs_list = [], [], [], []
 
     for __ in range(rep):
         sm_sv_smpl = df.sample(sv_per_sw, replace=True)
@@ -459,20 +486,20 @@ def sm_thresholds_gw(df):
 
         # Calculate allele frequency
         gw_daf_arr = gw_sm_sb_ad_alt_arr/sm_sv_smpl[sb_ld] - gw_sm_fb_ad_alt_arr/sm_sv_smpl[fb_ld]
-        # gw_daf_list.append(np.mean(np.absolute(gw_daf_arr)))
         gw_daf_list.append(np.mean(gw_daf_arr))
+        gw_daf_abs_list.append(np.mean(np.absolute(gw_daf_arr)))
 
     misc.append(['Genome-wide sSV/totalSV ratio threshold', np.percentile(gw_ratio_list, percentile_list)])
     misc.append(['Genome-wide G-statistic threshold', np.percentile(gw_gs_list, percentile_list)])
     misc.append(['Genome-wide Delta(AF) ratio threshold', np.percentile(gw_daf_list, percentile_list)])
     print(f'Threshold calculation completed, time elapsed: {(time.time()-t0)/60} minutes.')
 
-    return [np.percentile(gw_ratio_list, percentile_list), np.percentile(gw_gs_list, percentile_list), np.percentile(gw_daf_list, percentile_list)]
+    return [np.percentile(gw_ratio_list, percentile_list), np.percentile(gw_gs_list, percentile_list), np.percentile(gw_daf_list, percentile_list), np.percentile(gw_daf_abs_list, percentile_list)]
 
 
 def sm_thresholds_sw(df):
     # For the calculation of the sliding window-specific sSV/totalSV threshold
-    sw_ratio_list, sw_gs_list, sw_daf_list = [], [], []
+    sw_ratio_list, sw_gs_list, sw_daf_list, sw_daf_abs_list = [], [], [], []
 
     # Convert the LD column to a numpy array
     sw_fb_ld_arr = df[fb_ld].to_numpy().astype(np.uint)
@@ -500,10 +527,10 @@ def sm_thresholds_sw(df):
 
         # Calculate allele frequency
         gw_daf_arr = sw_sm_sb_ad_alt_arr/sw_sb_ld_arr - sw_sm_fb_ad_alt_arr/sw_fb_ld_arr
-        # sw_daf_list.append(np.mean(np.absolute(gw_daf_arr)))
         sw_daf_list.append(np.mean(gw_daf_arr))
+        sw_daf_abs_list.append(np.mean(np.absolute(gw_daf_arr)))
 
-    return [np.percentile(sw_ratio_list, percentile_list), np.percentile(sw_gs_list, percentile_list), np.percentile(sw_daf_list, percentile_list)]
+    return [np.percentile(sw_ratio_list, percentile_list), np.percentile(sw_gs_list, percentile_list), np.percentile(sw_daf_list, percentile_list), np.percentile(sw_daf_abs_list, percentile_list)]
 
 
 def zeroSV(li):
@@ -526,15 +553,58 @@ def replace_zero(li):
         j += 1
 
 
+def di(chrm_list, datafr):
+    # https://stackoverflow.com/questions/20625582/how-to-deal-with-settingwithcopywarning-in-pandas
+    # https://www.dataquest.io/blog/settingwithcopywarning/
+    di_list = []
+    for chrm in chrm_list:
+        ch = datafr[datafr.CHROM==chrm].copy()
+        pos_l1 = ch.POS.tolist()
+        pos_l1.insert(0, -sr_length*2)            # ensure the first SV is included even if it located at the position 1
+        pos_l1.pop()
+
+        ch['POS1'] = pos_l1
+        ch['DSTNC'] = ch.POS - ch.POS1
+        l = ch.DSTNC.tolist()
+
+        i, a = 0, []
+
+        while i < len(l):
+            if l[i] > sr_length:
+                a.append(1)
+                i += 1
+            else:
+                a.append(0)
+                temp = l[i]
+                i += 1
+                m = i
+                while i < len(l)-1 and temp + l[i] <= sr_length:
+                    a.append(0)
+                    temp += l[i]
+                    i += 1
+                if m != i:
+                    if temp <= sr_length and i >= len(l)-1:
+                        a.append(0)
+                    else:
+                        a.append(1)
+                    i += 1
+
+        di_list = di_list + a
+
+        ch['DI'] = a
+        temp_df = ch[['POS', 'POS1', 'DSTNC', 'DI']]
+        temp_df.to_csv(os.path.join(dgns_path, chrm+'.csv'), index=None)
+
+    return di_list
+
+
 def bsaseq_plot(chrm_list, datafr):
     '''
     wm_list: list of warning messages
-    sw_dict: a dictionary with the chromosome ID as its keys; the value of each key is a list containing
-            the chromosome ID, the sSV/totalSV ratio in each sliding window, and the startpoint of the 
-            sliding window
+    sw_dict: a dictionary with the chromosome ID as its keys; the value of each key is a list containing the chromosome ID, the sSV/totalSV ratio in each sliding window, and the startpoint of the sliding window
     misc: miscellaneous information
     sv_region: genomic region above the threshold
-    sw_data_frame: DataFrame containing a sliding window
+    sw_data_frame: DataFrame containing sliding windows
     '''
     print('Prepare SV data for plotting via the sliding window algorithm')
     global misc
@@ -554,8 +624,8 @@ def bsaseq_plot(chrm_list, datafr):
     ratio_peak_list = []         # List containing the peak of each chromosome 
     i = 1
     for chrm in chrm_list:
-        plot_sp = chrmSzD[chrm][0]               # The start point of the selected genomic region in the plot
-        plot_ep = chrmSzD[chrm][1]
+        plot_sp = chrmSzD[i-1][0]               # The start point of the selected genomic region in the plot
+        plot_ep = chrmSzD[i-1][1]
 
         ch = datafr[(datafr.CHROM==chrm) & (datafr.POS>=plot_sp) & (datafr.POS<=plot_ep)]
 
@@ -597,10 +667,10 @@ def bsaseq_plot(chrm_list, datafr):
                 # fb_z_ratio.append(sw_df['fb_Z'].mean())
                 # sb_z_ratio.append(sw_df['sb_Z'].mean())
 
-                if test == True and 'GS_CI0995' in hdr:
-                    y6.append(sw_df['GS_CI0995'].sum()/row_in_sw_df)
-                    y8.append(sw_df['DAF_CI0005'].sum()/row_in_sw_df)
-                    y9.append(sw_df['DAF_CI0995'].sum()/row_in_sw_df)
+                if test == True and 'GS_Thrshld' in hdr:
+                    y6.append(sw_df['GS_Thrshld'].sum()/row_in_sw_df)
+                    y8.append(sw_df['DAF_CI_LB'].sum()/row_in_sw_df)
+                    y9.append(sw_df['DAF_CI_UB'].sum()/row_in_sw_df)
                     # useful info of the sliding window
                     row_contents = [chrm, sw_str, sw_df[fb_ld].mean(), sw_df[sb_ld].mean(), sw_df['sSV'].sum(), row_in_sw_df, y_ratio[-1], y5[-1], y6[-1], y7[-1], y8[-1], y9[-1]]
                 else:
@@ -614,7 +684,7 @@ def bsaseq_plot(chrm_list, datafr):
                 # zeroSV(sb_z_ratio)
 
                 # The mean of an empty column is 'nan', not zero, and int(nan) generates a ValueError
-                if test == True and 'GS_CI0995' in hdr:
+                if test == True and 'GS_Thrshld' in hdr:
                     zeroSV(y6)
                     zeroSV(y8)
                     zeroSV(y9)
@@ -664,7 +734,7 @@ def bsaseq_plot(chrm_list, datafr):
         sg_gs_list.extend(sg_y5)
         sg_daf_list.extend(sg_y7)
 
-        if test == True and 'GS_CI0995' in hdr:
+        if test == True and 'GS_Thrshld' in hdr:
             sg_y6 = savgol_filter(y6, smth_wl, poly_order)
             sg_y8 = savgol_filter(y8, smth_wl, poly_order)
             sg_y9 = savgol_filter(y9, smth_wl, poly_order)
@@ -683,7 +753,7 @@ def bsaseq_plot(chrm_list, datafr):
             if i==1:
                 axs[0].set_ylabel('Number of SVs')
                 axs[1].set_ylabel(r'sSV/totalSV')
-                axs[2].set_ylabel('G-statistic')
+                axs[2].set_ylabel('$\\it{G}$-statistic')
                 axs[3].set_ylabel('\u0394AF')
 
             # Plot sSVs and total SVs against their genomic positions
@@ -698,57 +768,67 @@ def bsaseq_plot(chrm_list, datafr):
             if smoothing == True:
                 # sSVs/totalSVs via Fisher's exact test
                 axs[1].plot(x, sg_y_ratio, c=curve_color)
-                axs[1].scatter(adj_POS, ch.FE_P, marker=',', s=0.4, c=bg_color, zorder=-1)
+                # axs[1].scatter(adj_POS, ch.FE_P, marker=',', s=0.4, c=bg_color, zorder=-1)
                 # axs[1].scatter(adj_POS, 1-ch.FE_P, marker=',', s=0.4, c=bg_color, zorder=-1)
 
                 # G-statistic
                 axs[2].plot(x, sg_y5, c=curve_color)
-                axs[2].scatter(adj_POS, ch.G_S, marker=',', s=0.4, c=bg_color, zorder=-1)
+                # axs[2].scatter(adj_POS, ch.G_S, marker=',', s=0.4, c=bg_color, zorder=-1)
 
                 # Δ(allele frequency)
                 axs[3].plot(x, sg_y7, c=curve_color)
-                axs[3].scatter(adj_POS, ch.Delta_AF, marker=',', s=0.4, c=bg_color, zorder=-1)
+                #axs[3].scatter(adj_POS, ch.Delta_AF, marker=',', s=0.4, c=bg_color, zorder=-1)
 
-                # sSVs/totalSVs plot via z-test
+                # sSVs/totalSVs plot via z-testsw_data_frame
                 # axs[1].plot(x, sg_fb_z_ratio, c='c')
                 # axs[1].plot(x, sg_sb_z_ratio, c='g')
-                if test == True and 'GS_CI0995' in hdr:
+                if test == True and 'GS_Thrshld' in hdr:
                     # G-statistic threshold at the SV level
                     axs[2].plot(x, sg_y6, c=sv_threshold_color)
                     # Δ(allele frequency) confidence interval at the SV level
-                    axs[3].plot(x, sg_y8, c=sv_threshold_color)
-                    axs[3].plot(x, sg_y9, c=sv_threshold_color)
+
+                    if num_ipfiles == 1:
+                        axs[3].plot(x, sg_y9, c=sv_threshold_color)
+                    elif num_ipfiles == 2:
+                        axs[3].plot(x, sg_y8, c=sv_threshold_color)
+                        axs[3].plot(x, sg_y9, c=sv_threshold_color)
             else:
                 # sSVs/totalSVs via Fisher's exact test
                 axs[1].plot(x, y_ratio, c=curve_color)
-                axs[1].scatter(adj_POS, ch.FE_P, marker=',', s=0.4, c=bg_color, zorder=-1)
+                # axs[1].scatter(adj_POS, ch.FE_P, marker=',', s=0.4, c=bg_color, zorder=-1)
                 # axs[1].scatter(adj_POS, 1-ch.FE_P, marker=',', s=0.4, c=bg_color, zorder=-1)
 
                 # G-statistic
                 axs[2].plot(x, y5, c=curve_color)
-                axs[2].scatter(adj_POS, ch.G_S, marker=',', s=0.4, c=bg_color, zorder=-1)
+                # axs[2].scatter(adj_POS, ch.G_S, marker=',', s=0.4, c=bg_color, zorder=-1)
 
                 # Δ(allele frequency)
                 axs[3].plot(x, y7, c=curve_color)
-                axs[3].scatter(adj_POS, ch.Delta_AF, marker=',', s=0.4, c=bg_color, zorder=-1)
+                # axs[3].scatter(adj_POS, ch.Delta_AF, marker=',', s=0.4, c=bg_color, zorder=-1)
 
                 # sSVs/totalSVs plot via z-test
                 # axs[1].plot(x, fb_z_ratio, c='c')
                 # axs[1].plot(x, sb_z_ratio, c='g')
-                if test == True and 'GS_CI0995' in hdr:
+                if test == True and 'GS_Thrshld' in hdr:
                     # G-statistic threshold at the SV level
                     axs[2].plot(x, y6, c=sv_threshold_color)
                     # Δ(allele frequency) confidence interval at the SV level
-                    axs[3].plot(x, y8, c=sv_threshold_color)
-                    axs[3].plot(x, y9, c=sv_threshold_color)
+                    if num_ipfiles == 1:
+                        axs[3].plot(x, sg_y9, c=sv_threshold_color)
+                    elif num_ipfiles == 2:
+                        axs[3].plot(x, sg_y8, c=sv_threshold_color)
+                        axs[3].plot(x, sg_y9, c=sv_threshold_color)
 
             # Add the 99.5 percentile line as the threshold, x[-1] is the startpoint of the last sliding window of a chromosome
             axs[1].plot([plot_sp, x[-1]], [thrshld_fe, thrshld_fe], c=sw_threshold_color)
             axs[2].plot([plot_sp, x[-1]], [thrshld_gs, thrshld_gs], c=sw_threshold_color)
             # axs[3].plot([plot_sp, x[-1]], [thrshld_af, thrshld_af], c=sw_threshold_color)
             # axs[3].plot([plot_sp, x[-1]], [thrshld_af*(-1), thrshld_af*(-1)], c=sw_threshold_color)
-            axs[3].plot([plot_sp, x[-1]], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
-            axs[3].plot([plot_sp, x[-1]], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
+            if num_ipfiles == 1:
+                axs[3].plot([plot_sp, x[-1]], [thrshld_af_abs, thrshld_af_abs], c=sw_threshold_color)
+            elif num_ipfiles == 2:
+                axs[3].plot([plot_sp, x[-1]], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
+                axs[3].plot([plot_sp, x[-1]], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
             # axs[1].plot(x, sm_thresholds_sw, c='m')
 
         # Handle the plot with multiple columns (chromosomes)
@@ -762,7 +842,7 @@ def bsaseq_plot(chrm_list, datafr):
             if i==1:
                 axs[0,i-1].set_ylabel('Number of SVs')
                 axs[1,i-1].set_ylabel(r'sSV/totalSV')
-                axs[2,i-1].set_ylabel('G-statistic')
+                axs[2,i-1].set_ylabel('$\\it{G}$-statistic')
                 axs[3,i-1].set_ylabel('\u0394AF')
 
             # Plot sSV and totalSVs against their genomic positions
@@ -777,57 +857,65 @@ def bsaseq_plot(chrm_list, datafr):
             if smoothing == True:
                 # sSVs/totalSVs via Fisher's exact test
                 axs[1,i-1].plot(x, sg_y_ratio, c=curve_color)
-                axs[1,i-1].scatter(adj_POS, ch.FE_P, marker=',', s=0.4, c=bg_color, zorder=-1)
+                # axs[1,i-1].scatter(adj_POS, ch.FE_P, marker=',', s=0.4, c=bg_color, zorder=-1)
                 # axs[1,i-1].scatter(adj_POS, 1-ch.FE_P, marker=',', s=0.4, c=bg_color, zorder=-1)
 
                 # G-statistic
                 axs[2,i-1].plot(x, sg_y5, c=curve_color)
-                axs[2,i-1].scatter(adj_POS, ch.G_S, marker=',', s=0.4, c=bg_color, zorder=-1)
+                # axs[2,i-1].scatter(adj_POS, ch.G_S, marker=',', s=0.4, c=bg_color, zorder=-1)
 
                 # Δ(allele frequency)
                 axs[3,i-1].plot(x, sg_y7, c=curve_color)
-                axs[3,i-1].scatter(adj_POS, ch.Delta_AF, marker=',', s=0.4, c=bg_color, zorder=-1)
+                # axs[3,i-1].scatter(adj_POS, ch.Delta_AF, marker=',', s=0.4, c=bg_color, zorder=-1)
 
                 # sSVs/totalSVs plot via z-test
                 # axs[1,i-1].plot(x, sg_fb_z_ratio, c='c')
                 # axs[1,i-1].plot(x, sg_sb_z_ratio, c='g')
-                if test == True and 'GS_CI0995' in hdr:
+                if test == True and 'GS_Thrshld' in hdr:
                     # G-statistic threshold at the SV level
                     axs[2,i-1].plot(x, sg_y6, c=sv_threshold_color)
                     # Δ(allele frequency) confidence interval at the SV level
-                    axs[3,i-1].plot(x, sg_y8, c=sv_threshold_color)
-                    axs[3,i-1].plot(x, sg_y9, c=sv_threshold_color)
+                    if num_ipfiles == 1:
+                        axs[3,i-1].plot(x, sg_y9, c=sv_threshold_color)
+                    elif num_ipfiles == 2:
+                        axs[3, i-1].plot(x, sg_y8, c=sv_threshold_color)
+                        axs[3, i-1].plot(x, sg_y9, c=sv_threshold_color)
             else:
                 # sSVs/totalSVs via Fisher's exact test
                 axs[1,i-1].plot(x, y_ratio, c=curve_color)
-                axs[1,i-1].scatter(adj_POS, ch.FE_P, s=0.4, marker=',', c=bg_color, zorder=-1)
+                # axs[1,i-1].scatter(adj_POS, ch.FE_P, s=0.4, marker=',', c=bg_color, zorder=-1)
                 # axs[1,i-1].scatter(adj_POS, 1-ch.FE_P, s=0.4, marker=',', c=bg_color, zorder=-1)
                 
                 # G-statistic
                 axs[2,i-1].plot(x, y5, c=curve_color)
-                axs[2,i-1].scatter(adj_POS, ch.G_S, marker=',', s=0.4, c=bg_color, zorder=-1)
+                # axs[2,i-1].scatter(adj_POS, ch.G_S, marker=',', s=0.4, c=bg_color, zorder=-1)
 
                 # Δ(allele frequency)
                 axs[3,i-1].plot(x, y7, c=curve_color)
-                axs[3,i-1].scatter(adj_POS, ch.Delta_AF, marker=',', s=0.4, c=bg_color, zorder=-1)
+                # axs[3,i-1].scatter(adj_POS, ch.Delta_AF, marker=',', s=0.4, c=bg_color, zorder=-1)
 
                 # sSVs/totalSVs plot via z-test
                 # axs[1,i-1].plot(x, fb_z_ratio, c='c')
                 # axs[1,i-1].plot(x, sb_z_ratio, c='g')
-                if test == True and 'GS_CI0995' in hdr:
+                if test == True and 'GS_Thrshld' in hdr:
                     # G-statistic threshold at the SV level
                     axs[2,i-1].plot(x, y6, c=sv_threshold_color)
                     # Δ(allele frequency) confidence interval at the SV level
-                    axs[3,i-1].plot(x, y8, c=sv_threshold_color)
-                    axs[3,i-1].plot(x, y9, c=sv_threshold_color)
-
+                    if num_ipfiles == 1:
+                        axs[3,i-1].plot(x, sg_y9, c=sv_threshold_color)
+                    elif num_ipfiles == 2:
+                        axs[3, i-1].plot(x, sg_y8, c=sv_threshold_color)
+                        axs[3, i-1].plot(x, sg_y9, c=sv_threshold_color)
             # Add the 99.5 percentile line as the threshold, x[-1] is the startpoint of the last sliding window of a chromosome
             axs[1,i-1].plot([plot_sp, x[-1]], [thrshld_fe, thrshld_fe], c=sw_threshold_color)
             axs[2,i-1].plot([plot_sp, x[-1]], [thrshld_gs, thrshld_gs], c=sw_threshold_color)
             # axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af, thrshld_af], c=sw_threshold_color)
             # axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af*(-1), thrshld_af*(-1)], c=sw_threshold_color)
-            axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
-            axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
+            if num_ipfiles == 1:
+                axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af_abs, thrshld_af_abs], c=sw_threshold_color)
+            elif num_ipfiles == 2:
+                axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
+                axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
             # axs[1, i-1].plot(x, sm_thresholds_sw, c='m')
 
         ratio_peak_list.append(max(y_ratio))
@@ -871,8 +959,8 @@ def bsaseq_plot(chrm_list, datafr):
     header_results = ['CHROM','QTLStart','QTLEnd','Peaks', 'NumOfSWs']
     pd.DataFrame(sv_region, columns=header_results).to_csv(os.path.join(results, 'sv_region.csv'), index=False)
 
-    if test == True and 'GS_CI0995' in hdr:
-        sw_data_frame = pd.DataFrame(sw_rows, columns=['CHROM', 'POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'GS', 'GS_CI0995', 'Delta_AF', 'DAF_CI0005', 'DAF_CI0995'])
+    if test == True and 'GS_Thrshld' in hdr:
+        sw_data_frame = pd.DataFrame(sw_rows, columns=['CHROM', 'POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'GS', 'GS_Thrshld', 'Delta_AF', 'DAF_CI_LB', 'DAF_CI_UB'])
         sw_data_frame['smthedGSThrshld'] = sg_t_gs_list
         sw_data_frame['smthedDAFNCI'] = sg_nt_daf_list
         sw_data_frame['smthedDAFPCI'] = sg_pt_daf_list
@@ -892,7 +980,7 @@ def bsaseq_plot(chrm_list, datafr):
         xie1.writerow(['Type', 'Chr', 'Position', 'Warning Message'])
         xie1.writerows(wm_list)
 
-    num_sv_on_chr_file = os.path.join(results, 'num_sv_on_chr_file_wp.csv')
+    num_sv_on_chr_file = os.path.join(results, 'num_sv_on_chr_file.csv')
     with open(num_sv_on_chr_file, 'w', newline='') as out_f2:
         xie2 = csv.writer(out_f2)
         xie2.writerow(['Chromosome', 'Num of sSVs', 'Num of totalSVs', r'sSV/totalSV'])
@@ -907,8 +995,8 @@ def bsaseq_plot_sw(chrm_list, datafr):
     # Analyze each chromosome separately
     i = 1
     for chrm in chrm_list:
-        plot_sp = chrmSzD[chrm][0]               # The start point of the selected genomic region in the plot
-        plot_ep = chrmSzD[chrm][1]
+        plot_sp = chrmSzD[i-1][0]               # The start point of the selected genomic region in the plot
+        plot_ep = chrmSzD[i-1][1]
 
         ch = datafr[(datafr.CHROM==chrm) & (datafr.POS>=plot_sp) & (datafr.POS<=plot_ep)]
         # ch = datafr[datafr.CHROM==chrm]
@@ -924,7 +1012,7 @@ def bsaseq_plot_sw(chrm_list, datafr):
             if i==1:
                 axs[0].set_ylabel('Number of SVs')
                 axs[1].set_ylabel(r'sSV/totalSV')
-                axs[2].set_ylabel('G-statistic')
+                axs[2].set_ylabel('$\\it{G}$-statistic')
                 axs[3].set_ylabel('\u0394AF')
 
             # Plot sSVs and total SVs against their genomic positions
@@ -948,8 +1036,11 @@ def bsaseq_plot_sw(chrm_list, datafr):
                     # G-statistic threshold at the SV level
                     axs[2].plot(ch.POS, ch.smthedGSThrshld, c=sv_threshold_color)
                     # Δ(allele frequency) confidence intervals at the SV level
-                    axs[3].plot(ch.POS, ch.smthedDAFPCI, c=sv_threshold_color)
-                    axs[3].plot(ch.POS, ch.smthedDAFNCI, c=sv_threshold_color)
+                    if num_ipfiles == 1:
+                        axs[3].plot(ch.POS, ch.smthedDAFPCI, c=sv_threshold_color)
+                    elif num_ipfiles == 2:
+                        axs[3].plot(ch.POS, ch.smthedDAFPCI, c=sv_threshold_color)
+                        axs[3].plot(ch.POS, ch.smthedDAFNCI, c=sv_threshold_color)
             else:
                  # sSVs/totalSVs via Fisher's exact test
                 axs[1].plot(ch.POS, ch[r'sSV/totalSV'], c=curve_color)
@@ -959,18 +1050,24 @@ def bsaseq_plot_sw(chrm_list, datafr):
                 axs[3].plot(ch.POS, ch.Delta_AF, c=curve_color,)
                 if test == True and 'smthedGSThrshld' in hdr:
                     # G-statistic threshold at the SV level
-                    axs[2].plot(ch.POS, ch.GS_CI0995, c=sv_threshold_color)
+                    axs[2].plot(ch.POS, ch.GS_Thrshld, c=sv_threshold_color)
                     # Δ(allele frequency) confidence intervals at the SV level
-                    axs[3].plot(ch.POS, ch.DAF_CI0005, c=sv_threshold_color)
-                    axs[3].plot(ch.POS, ch.DAF_CI0995, c=sv_threshold_color)
+                    if num_ipfiles == 1:
+                        axs[3].plot(ch.POS, ch.DAF_CI_UB, c=sv_threshold_color)
+                    elif num_ipfiles == 2: 
+                        axs[3].plot(ch.POS, ch.DAF_CI_LB, c=sv_threshold_color)
+                        axs[3].plot(ch.POS, ch.DAF_CI_UB, c=sv_threshold_color)
 
             # Add the 99.5 percentile line as the threshold, plot_ep is the startpoint of the last sliding window of a chromosome
             axs[1].plot([plot_sp, plot_ep], [thrshld_fe, thrshld_fe], c=sw_threshold_color)
             axs[2].plot([plot_sp, plot_ep], [thrshld_gs, thrshld_gs], c=sw_threshold_color)
             # axs[3].plot([plot_sp, plot_ep], [thrshld_af, thrshld_af], c=sw_threshold_color)
             # axs[3].plot([plot_sp, plot_ep], [thrshld_af*(-1), thrshld_af*(-1)], c=sw_threshold_color)
-            axs[3].plot([plot_sp, plot_ep], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
-            axs[3].plot([plot_sp, plot_ep], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
+            if num_ipfiles == 1:
+                axs[3].plot([plot_sp, plot_ep], [thrshld_af_abs, thrshld_af_abs], c=sw_threshold_color)
+            elif num_ipfiles == 2:
+                axs[3].plot([plot_sp, plot_ep], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
+                axs[3].plot([plot_sp, plot_ep], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
             # axs[1].plot(x, sm_thresholds_sw, c='m')
 
         # Handle the plot with multiple columns (chromosomes)
@@ -984,7 +1081,7 @@ def bsaseq_plot_sw(chrm_list, datafr):
             if i==1:
                 axs[0,i-1].set_ylabel('Number of SVs')
                 axs[1,i-1].set_ylabel(r'sSV/totalSV')
-                axs[2,i-1].set_ylabel('G-statistic')
+                axs[2,i-1].set_ylabel('$\\it{G}$-statistic')
                 axs[3,i-1].set_ylabel('\u0394AF')
 
             # Plot sSV and totalSVs against their genomic positions
@@ -1007,8 +1104,11 @@ def bsaseq_plot_sw(chrm_list, datafr):
                     # G-statistic threshold at the SV level
                     axs[2,i-1].plot(ch.POS, ch.smthedGSThrshld, c=sv_threshold_color)
                     # Δ(allele frequency) confidence intervals at the SV level
-                    axs[3,i-1].plot(ch.POS, ch.smthedDAFPCI, c=sv_threshold_color)
-                    axs[3,i-1].plot(ch.POS, ch.smthedDAFNCI, c=sv_threshold_color)
+                    if num_ipfiles == 1:
+                        axs[3,i-1].plot(ch.POS, ch.smthedDAFPCI, c=sv_threshold_color)
+                    elif num_ipfiles == 2:
+                        axs[3,i-1].plot(ch.POS, ch.smthedDAFPCI, c=sv_threshold_color)
+                        axs[3,i-1].plot(ch.POS, ch.smthedDAFNCI, c=sv_threshold_color)
             else:
                 # sSVs/totalSVs via Fisher's exact test
                 axs[1,i-1].plot(ch.POS, ch[r'sSV/totalSV'], c=curve_color)
@@ -1018,18 +1118,24 @@ def bsaseq_plot_sw(chrm_list, datafr):
                 axs[3,i-1].plot(ch.POS, ch.Delta_AF, c=curve_color,)
                 if test == True and 'smthedGSThrshld' in hdr:
                     # G-statistic threshold at the SV level
-                    axs[2,i-1].plot(ch.POS, ch.GS_CI0995, c=sv_threshold_color)
+                    axs[2,i-1].plot(ch.POS, ch.GS_Thrshld, c=sv_threshold_color)
                     # Δ(allele frequency) confidence intervals at the SV level
-                    axs[3,i-1].plot(ch.POS, ch.DAF_CI0005, c=sv_threshold_color)
-                    axs[3,i-1].plot(ch.POS, ch.DAF_CI0995, c=sv_threshold_color)
+                    if num_ipfiles == 1:
+                        axs[3,i-1].plot(ch.POS, ch.DAF_CI_UB, c=sv_threshold_color)
+                    elif num_ipfiles == 2:
+                        axs[3,i-1].plot(ch.POS, ch.DAF_CI_LB, c=sv_threshold_color)
+                        axs[3,i-1].plot(ch.POS, ch.DAF_CI_UB, c=sv_threshold_color)
 
             # Add the 99.5 percentile line as the threshold, plot_ep is the startpoint of the last sliding window of a chromosome
             axs[1,i-1].plot([plot_sp, plot_ep], [thrshld_fe, thrshld_fe], c=sw_threshold_color)
             axs[2,i-1].plot([plot_sp, plot_ep], [thrshld_gs, thrshld_gs], c=sw_threshold_color)
             # axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af, thrshld_af], c=sw_threshold_color)
             # axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af*(-1), thrshld_af*(-1)], c=sw_threshold_color)
-            axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
-            axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
+            if num_ipfiles == 1:
+                axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af_abs, thrshld_af_abs], c=sw_threshold_color)
+            elif num_ipfiles == 2:
+                axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
+                axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
             # axs[1, i-1].plot(x, sm_thresholds_sw, c='m')
 
         i += 1
@@ -1038,27 +1144,28 @@ def bsaseq_plot_sw(chrm_list, datafr):
 
 
 def peak(l):
-    ratioList = []
-    for subL in l:
-        ratioList.append(subL[5])
+    ratio_list = []
+    for sub_l in l:
+        ratio_list.append(sub_l[5])
 
-    return l[ratioList.index(max(ratioList))]
+    return l[ratio_list.index(max(ratio_list))]
 
 
-def pkList(l):
-    peakList = []
-    for subL in l:
-        if subL[3] != [] and subL[4] > 10:
-            tempL = peak(subL[3])
-            peakList.append([subL[0], tempL[0]])
+def pk_list(l):
+    peak_list = []
+    for sub_l in l:
+        if sub_l[3] != [] and sub_l[4] > 10:
+            tempL = peak(sub_l[3])
+            peak_list.append([sub_l[0], tempL[0]])
 
-    return peakList
+    return peak_list
 
 
 def accurate_threshold_sw(l, df):
     peaks = []
-    for subL in l:
-        peak_sw = df[(df.CHROM == subL[0]) & (df.POS >= subL[1]) & (df.POS <= subL[1]+sw_size-1)]
+    for sub_l in l:
+        peak_sw = df[(df.CHROM == sub_l[0]) & (df.POS >= sub_l[1]) & (df.POS <= sub_l[1]+sw_size-1)]
+        __, pvalue_tt = ttest_rel(peak_sw[fb_af], peak_sw[sb_af])
         sSV_peak_sw = peak_sw[peak_sw.FE_P<alpha]
 
         sSV, totalSV = len(sSV_peak_sw.index), len(peak_sw.index)
@@ -1066,28 +1173,29 @@ def accurate_threshold_sw(l, df):
 
         thresholds = sm_thresholds_sw(peak_sw)
 
-        # peaks.append([subL[0], subL[1], int(peak_sw[fb_ld].mean()), int(peak_sw[sb_ld].mean()), sSV, totalSV, ratio, sm_thresholds_sw(peak_sw)])
-        peaks.append([subL[0], subL[1], peak_sw[fb_ld].mean(), peak_sw[sb_ld].mean(), sSV, totalSV, ratio, thresholds[0][1], peak_sw.G_S.mean(), thresholds[1][1], peak_sw.Delta_AF.mean(), thresholds[2][0], thresholds[2][1]])
+        # peaks.append([sub_l[0], sub_l[1], int(peak_sw[fb_ld].mean()), int(peak_sw[sb_ld].mean()), sSV, totalSV, ratio, sm_thresholds_sw(peak_sw)])
+        peaks.append([sub_l[0], sub_l[1], peak_sw[fb_ld].mean(), peak_sw[sb_ld].mean(), sSV, totalSV, ratio, thresholds[0][1], peak_sw.G_S.mean(), thresholds[1][1], peak_sw.Delta_AF.mean(), thresholds[2][0], thresholds[2][1], pvalue_tt])
 
-    header_results = ['CHROM','POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'Threshold_sSV', 'GS', 'Threshold_GS', 'DAF', 'DAF_CI0005', 'DAF_CI0995']
+    header_results = ['CHROM','POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'Threshold_sSV', 'GS', 'Threshold_GS', 'DAF', 'DAF_CI_LB', 'DAF_CI_UB', 'pvalue_tt']
     peak_df = pd.DataFrame(peaks, columns=header_results)
-    peak_df['Real_SSV'] = np.where(peak_df[r'sSV/totalSV']>=peak_df['Threshold_sSV'], True, False)
-    peak_df['Real_GS'] = np.where(peak_df.GS>=peak_df.Threshold_GS, True, False)
-    peak_df['Real_AF'] = np.where((peak_df.DAF>=peak_df.DAF_CI0995) | (peak_df.DAF<=peak_df.DAF_CI0005), True, False)
+    peak_df['Significancy_SSV'] = np.where(peak_df[r'sSV/totalSV']>=peak_df['Threshold_sSV'], 1, 0)
+    peak_df['Significancy_GS'] = np.where(peak_df.GS>=peak_df.Threshold_GS, 1, 0)
+    peak_df['Significancy_AF'] = np.where((peak_df.DAF>=peak_df.DAF_CI_UB) | (peak_df.DAF<=peak_df.DAF_CI_LB), 1, 0)
+    peak_df['Significancy_TT'] = np.where(peak_df['pvalue_tt']<=alpha, 1, 0)
 
     peak_df.to_csv(os.path.join(results, args.output), index=False)
 
 
 def accurate_threshold_gw(l, df):
     peaks = []
-    for subL in l:
-        peak_sw = df[(df.CHROM == subL[0]) & (df.POS >= subL[1]) & (df.POS <= subL[1]+sw_size-1)]
+    for sub_l in l:
+        peak_sw = df[(df.CHROM == sub_l[0]) & (df.POS >= sub_l[1]) & (df.POS <= sub_l[1]+sw_size-1)]
         sSV_peak_sw = peak_sw[peak_sw.FE_P<alpha]
         sSV, totalSV = len(sSV_peak_sw.index), len(peak_sw.index)
         ratio = sSV / totalSV
 
-        # peaks.append([subL[0], subL[1], int(peak_sw[fb_ld].mean()), int(peak_sw[sb_ld].mean()), sSV, totalSV, ratio, thrshld_fe])
-        peaks.append([subL[0], subL[1], peak_sw[fb_ld].mean(), peak_sw[sb_ld].mean(), sSV, totalSV, ratio, thrshld_fe])
+        # peaks.append([sub_l[0], sub_l[1], int(peak_sw[fb_ld].mean()), int(peak_sw[sb_ld].mean()), sSV, totalSV, ratio, thrshld_fe])
+        peaks.append([sub_l[0], sub_l[1], peak_sw[fb_ld].mean(), peak_sw[sb_ld].mean(), sSV, totalSV, ratio, thrshld_fe])
 
     header_results = ['CHROM','POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'Threshold']
     peak_df = pd.DataFrame(peaks, columns=header_results)
@@ -1108,7 +1216,7 @@ plt.rc('figure', titlesize=22)              # fontsize of the figure title
 
 ap = argparse.ArgumentParser()
 ap.add_argument('-i', '--input', required=False, help='file names of the GATK4-generated tsv files: parental, bulk', type=lambda s: [t for t in s.split(',')], default='parents.tsv,bulks.tsv')
-ap.add_argument('-o', '--output', required=False, help='file name of the output csv file', default='BSASeq_WP.csv')
+ap.add_argument('-o', '--output', required=False, help='file name of the output csv file', default='BSASeq.csv')
 ap.add_argument('-b', '--bulksizes', required=False, help='bulk sizes: first_bulk,second_bulk', type=lambda s: [int(t) for t in s.split(',')], default='430,385')
 ap.add_argument('-p', '--popstruct', required=False, choices=['F2','RIL','BC'], help='population structure', default='F2')
 ap.add_argument('-v', '--pvalues', required=False, help='cutoff p-values: real_data,simulation', type=lambda s: [float(t) for t in s.split(',')], default='0.01,0.01')
@@ -1116,28 +1224,38 @@ ap.add_argument('-r', '--replication', type=int, required=False, help='the numbe
 ap.add_argument('-s', '--slidingwindow', required=False, help='size,incremental_step', type=lambda s: [int(t) for t in s.split(',')], default='2000000,10000')
 ap.add_argument('-g', '--gaps', required=False, help='gaps between subplots: horizontal,vertical', type=lambda s: [float(t) for t in s.split(',')], default='0.028,0.056,0.0264,0.054,0.076,0.002,0.002')
 ap.add_argument('-m', '--smoothing', required=False, help='smoothing parameters: window_len,polyorder', type=lambda s: [int(t) for t in s.split(',')], default='51,3')
-ap.add_argument('--smooth', type=bool, required=False, help='smooth the plot', default=True)
-ap.add_argument('--chromosome_order', type=bool, required=False, help='manually set chromosome order', default=False)
+ap.add_argument('-t','--smooth', type=bool, required=False, help='smooth the plot', default=True)
+ap.add_argument('--chromosome_order', required=False, help='manually set chromosome order', type=lambda s: [t for t in s.split(',')], default=False)
+ap.add_argument('-d', '--data_independence', required=False, help='make deta point independent of each other', type=lambda s: [int(t) for t in s.split(',')], default='100,1')
 ap.add_argument('-e', '--region', required=False, help='interested region(s): chrm,start,end', type=lambda s: [int(t) for t in s.split(',')], default='-1')
-ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SVs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,6,1')
+ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SVs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,1')
+ap.add_argument('-a','--adjust_gap', type=bool, required=False, help='adjust gaps between subplot', default=False)
 
 args = ap.parse_args()
-mr = args.chromosome_order
+chrm_order = args.chromosome_order
 input_files = args.input
 pop_struct = args.popstruct
 rep = args.replication
+data_independence = args.data_independence
+sr_length, need_di_value = data_independence[0], data_independence[1]
+if need_di_value == 1:
+    need_di = True
+else:
+    need_di = False
 fb_size, sb_size = args.bulksizes[0], args.bulksizes[1]
 alpha, sm_alpha = args.pvalues[0], args.pvalues[1]
 sw_size, incremental_step = args.slidingwindow[0], args.slidingwindow[1]
-h_gap, v_gap, t_margin, b_margin, l_margin, r_margin, g_pos  = args.gaps[0], args.gaps[1], 1-args.gaps[2], args.gaps[3], args.gaps[4], 1-args.gaps[5], args.gaps[6]
+h_gap, v_gap, t_margin, b_margin, l_margin, r_margin, g_pos = args.gaps[0], args.gaps[1], 1-args.gaps[2], args.gaps[3], args.gaps[4], 1-args.gaps[5], args.gaps[6]
 smoothing = args.smooth
 smth_wl, poly_order = args.smoothing[0], args.smoothing[1]
 region = args.region
-gq_value, min_SVs, hi_read_fold, mirror_index = args.misc[0], args.misc[1], args.misc[2], args.misc[3]
+gq_value, min_SVs, mirror_index = args.misc[0], args.misc[1], args.misc[2]
+gap_adjust = args.adjust_gap
 
+num_ipfiles = len(input_files)
 misc = []
 min_frag_size = sw_size + smth_wl * incremental_step     # Minimum chromosome size allowed
-additional_peaks = ''
+# additional_peaks = ''
 percentile_list = [0.5, 99.5, 2.5, 97.5, 5.0, 95.0]
 curve_color, sv_threshold_color, sw_threshold_color = 'k', 'magenta', 'r'
 ttl_sv_color, bg_color = 'b', 'gray'
@@ -1149,20 +1267,23 @@ sb_freq = sm_allelefreq(pop_struct, sb_size, rep)
 
 # Set paths for input/output files
 path = os.getcwd()
-samples = ['parents', 'bulks']
-oi_file = os.path.join(path, 'Results', 'sv_fagz_wp.csv')
-fep_file = os.path.join(path, 'Results', 'sv_fagz_wp_fep.csv')
-sw_file = os.path.join(path, 'Results', 'sliding_windows_wp.csv')
+oi_file = os.path.join(path, 'Results', 'sv_fagz.csv')
+fep_file = os.path.join(path, 'Results', 'sv_fagz_fep.csv')
+sw_file = os.path.join(path, 'Results', 'sliding_windows.csv')
 thrshld_file = os.path.join(path, 'Results', 'threshold.txt')
 # status_file = os.path.join(path, 'Results', 'COMPLETE.txt')
 current_dt = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 results = os.path.join(path, 'Results', current_dt)
+dgns_path = os.path.join(path, 'temp')
 
 if not os.path.exists(results):
     os.makedirs(results)
 
+if not os.path.exists(dgns_path):
+    os.makedirs(dgns_path)
+
 selected_chrms = None
-if os.path.isfile(thrshld_file) and os.path.isfile(sw_file):
+if os.path.isfile(thrshld_file) and os.path.isfile(sw_file) and gap_adjust==True:
     with open(thrshld_file, 'r') as du:
         threshold_list = du.readline().strip().split(' ')
         temp = [float(i) for i in threshold_list]
@@ -1170,26 +1291,27 @@ if os.path.isfile(thrshld_file) and os.path.isfile(sw_file):
         thrshld_gs = temp[1]
         thrshld_af_n= temp[2]
         thrshld_af_p = temp[3]
+        thrshld_af_abs = temp[4]
 
-    sw_df = pd.read_csv(sw_file, dtype={'CHROM':str})
-    chrms = sw_df['CHROM'].unique().tolist()
+    sw_data_frame = pd.read_csv(sw_file, dtype={'CHROM':str})
+    chrms = sw_data_frame['CHROM'].unique().tolist()
 
-    temp = select_chrms(sw_df, region)
+    temp = select_chrms(sw_data_frame, region)
     selected_chrms = temp[0]
     chrmSzD = temp[1]
     chrmSzL = temp[2]
 
     # Plot layout setup
-    heightRatio = [1,0.8,0.8,0.8]
+    height_ratio = [1,0.8,0.8,0.8]
     xt_pro = xticks_property(chrmSzL)
-    fig, axs = plt.subplots(nrows=len(heightRatio), ncols=len(selected_chrms), figsize=(20, 12.8), sharex='col', sharey='row', 
-            gridspec_kw={'width_ratios': chrmSzL, 'height_ratios': heightRatio})
+    fig, axs = plt.subplots(nrows=len(height_ratio), ncols=len(selected_chrms), figsize=(20, 12.8), sharex='col', sharey='row', 
+            gridspec_kw={'width_ratios': chrmSzL, 'height_ratios': height_ratio})
 
-    bsaseq_plot_sw(selected_chrms, sw_df)
+    bsaseq_plot_sw(selected_chrms, sw_data_frame)
 else:
     if os.path.isfile(oi_file):
-        additional_peaks = input('Do you want to have additional peaks identified (yes or no)?\n')
-        print('\n')
+        # additional_peaks = input('Do you want to have additional peaks identified (yes or no)?\n')
+        # print('\n')
         bsa_svs = pd.read_csv(oi_file, dtype={'CHROM':str})
         # bsa_svs = ttlSVs[ttlSVs.CHROM.isin(selected_chrms)]
 
@@ -1199,6 +1321,7 @@ else:
         fb_ad, sb_ad = fb_id+'.AD', sb_id+'.AD'
         fb_ad_ref, fb_ad_alt = fb_ad + '_REF', fb_ad + '_ALT'
         sb_ad_ref, sb_ad_alt = sb_ad + '_REF', sb_ad + '_ALT'
+        fb_af, sb_af = fb_id+'.AF', sb_id+'.AF'
         sm_fb_ad_ref, sm_fb_ad_alt = 'sm_'+fb_ad_ref, 'sm_'+fb_ad_alt
         sm_sb_ad_ref, sm_sb_ad_alt = 'sm_'+sb_ad_ref, 'sm_'+sb_ad_alt
 
@@ -1211,9 +1334,11 @@ else:
         chrmSzL = temp[2]
     else:
         m = 0
-        for smpl in samples:
-            in_file = os.path.join(path, input_files[m])
-            filtering_path = os.path.join(path, 'FilteredSVs', smpl)
+        for file in input_files:
+            in_file = os.path.join(path, file)
+            print(in_file)
+            sample = file.split('.')[0]
+            filtering_path = os.path.join(path, 'FilteredSVs', sample)
 
             if in_file.endswith('.tsv'):
                 separator = '\t'
@@ -1286,7 +1411,7 @@ else:
             # Create a unique ID for each SV (row) with its 'CHROM_POS'
             sv_df['ID'] = sv_df.CHROM.astype(str) + '_' + sv_df.POS.astype(str)
 
-            if smpl == 'parents':
+            if m == 0 and num_ipfiles == 2:
                 homo_svs = sv_df[((sv_df[fb_ad_ref]==0) & (sv_df[sb_ad_alt]==0)) \
                 | ((sv_df[fb_ad_alt]==0) & (sv_df[sb_ad_ref]==0))]
                 hetero_svs = sv_df.drop(index=homo_svs.index)
@@ -1299,18 +1424,19 @@ else:
                 p_fb_gt, p_sb_gt = fb_gt, sb_gt
                 p_fb_id, p_sb_id = fb_id, sb_id
                 p_filtering_path = filtering_path
-            else:
+            elif m == 1 or num_ipfiles == 1:
                 bulk_svs_lowq = sv_df[(sv_df[fb_gq]<gq_value) | (sv_df[sb_gq]<gq_value)]
                 bulk_svs_lowq.to_csv(os.path.join(filtering_path, 'bulk_svs_lowq.csv'), index=None)
                 bulk_svs = sv_df.drop(index=bulk_svs_lowq.index)
 
                 # An SV with very high LD is likely from the repetitive genomic sequence
                 # Remove SVs that could be from the repetitive elements
-                fb_rep_ld, sb_rep_ld = hi_read_fold * bulk_svs[fb_ld].mean(), hi_read_fold * bulk_svs[sb_ld].mean() 
+                print([bulk_svs[fb_ld].mean(), bulk_svs[fb_ld].std(), bulk_svs[sb_ld].mean(), bulk_svs[sb_ld].std()])
+                fb_rep_ld, sb_rep_ld = bulk_svs[fb_ld].mean()+3*bulk_svs[fb_ld].std(), bulk_svs[sb_ld].mean()+3*bulk_svs[sb_ld].std() 
                 sv_rep = bulk_svs[(bulk_svs[fb_ld]>fb_rep_ld) | (bulk_svs[sb_ld]>sb_rep_ld)]
                 sv_rep.to_csv(os.path.join(filtering_path, 'repetitive_seq.csv'), index=None)
                 bulk_svs = bulk_svs.drop(index=sv_rep.index)
-                bulk_svs.to_csv(os.path.join(filtering_path, 'bulk_svs_wp.csv'), index=False)
+                bulk_svs.to_csv(os.path.join(filtering_path, 'bulk_svs.csv'), index=False)
 
             m += 1
 
@@ -1319,33 +1445,41 @@ else:
         misc.extend([['Chromosome ID', selected_chrms]])
         misc.append(['Chromosome sizes', chrmSzL])
 
-        # Find the common SVs between the homoSVs and bulkSVs
-        bsa_svs = bulk_svs[bulk_svs.ID.isin(homo_svs.ID)]
-        np_svs = bulk_svs.drop(index=bsa_svs.index)
-        bsa_svs.to_csv(os.path.join(filtering_path, 'bsa_svs_wp_before.csv'), index=None)
-        np_svs.to_csv(os.path.join(filtering_path, 'np_svs.csv'), index=None)
+        if num_ipfiles == 1:
+            bsa_svs = bulk_svs.copy()
+        elif num_ipfiles == 2:
+            # Find the common SVs between the homoSVs and bulkSVs
+            bsa_svs = bulk_svs[bulk_svs.ID.isin(homo_svs.ID)]
+            np_svs = bulk_svs.drop(index=bsa_svs.index)
+            bsa_svs.to_csv(os.path.join(filtering_path, 'bsa_svs_before.csv'), index=None)
+            np_svs.to_csv(os.path.join(filtering_path, 'np_svs.csv'), index=None)
 
-        ref_svs = homo_svs[homo_svs.ID.isin(bsa_svs.ID)]
-        ref_svs.to_csv(os.path.join(p_filtering_path, 'ref_svs.csv'), index=None)
+            ref_svs = homo_svs[homo_svs.ID.isin(bsa_svs.ID)]
+            ref_svs.to_csv(os.path.join(p_filtering_path, 'ref_svs.csv'), index=None)
 
-        if bsa_svs.ID.tolist() != ref_svs.ID.tolist():
-            print('The ID sets of bsa_svs and ref_svs are not the same.')
-            sys.exit()
+            if bsa_svs.ID.tolist() != ref_svs.ID.tolist():
+                print('The ID sets of bsa_svs and ref_svs are not the same.')
+                sys.exit()
 
-        bsa_svs = bsa_svs.copy()
-        # Add the genotypes of the parents to the bulk SV dataset
-        bsa_svs['p_REF'] = ref_svs[p_fb_gt].str.split('/|\|',expand=True)[0].tolist()
-        bsa_svs['p_ALT'] = ref_svs[p_sb_gt].str.split('/|\|',expand=True)[0].tolist()
+            bsa_svs = bsa_svs.copy()
+            # Add the genotypes of the parents to the bulk SV dataset
+            bsa_svs['p_REF'] = ref_svs[p_fb_gt].str.split('/|\\|',expand=True)[0].tolist()
+            bsa_svs['p_ALT'] = ref_svs[p_sb_gt].str.split('/|\\|',expand=True)[0].tolist()
 
-        # Swap the AD values and genotypes of the REF/ALT alleles in each bulk if the genotype of parent1 is different from the REF base
-        bsa_svs[fb_gt] = np.where(bsa_svs.p_REF==bsa_svs.REF, bsa_svs[fb_gt], bsa_svs[fb_gt_alt] + '/' + bsa_svs[fb_gt_ref])
-        bsa_svs[sb_gt] = np.where(bsa_svs.p_REF==bsa_svs.REF, bsa_svs[sb_gt], bsa_svs[sb_gt_alt] + '/' + bsa_svs[sb_gt_ref])
-        bsa_svs[fb_ad] = np.where(bsa_svs.p_REF==bsa_svs.REF, bsa_svs[fb_ad], bsa_svs[fb_ad_alt].astype(str) + ',' + bsa_svs[fb_ad_ref].astype(str))
-        bsa_svs[sb_ad] = np.where(bsa_svs.p_REF==bsa_svs.REF, bsa_svs[sb_ad], bsa_svs[sb_ad_alt].astype(str) + ',' + bsa_svs[sb_ad_ref].astype(str))
-        bsa_svs[[fb_ad_ref, fb_ad_alt]] = bsa_svs[fb_ad].str.split(',', expand=True).astype(int)
-        bsa_svs[[sb_ad_ref, sb_ad_alt]] = bsa_svs[sb_ad].str.split(',', expand=True).astype(int)
-        bsa_svs['ad_Swap'] = np.where(bsa_svs.p_REF==bsa_svs.REF, 1, -1)
-        bsa_svs.to_csv(os.path.join(filtering_path, 'bsa_svs_wp_after.csv'), index=None)
+            # Swap the AD values and genotypes of the REF/ALT alleles in each bulk if the genotype of parent1 is different from the REF base
+            bsa_svs[fb_gt] = np.where(bsa_svs.p_REF==bsa_svs.REF, bsa_svs[fb_gt], bsa_svs[fb_gt_alt] + '/' + bsa_svs[fb_gt_ref])
+            bsa_svs[sb_gt] = np.where(bsa_svs.p_REF==bsa_svs.REF, bsa_svs[sb_gt], bsa_svs[sb_gt_alt] + '/' + bsa_svs[sb_gt_ref])
+            bsa_svs[fb_ad] = np.where(bsa_svs.p_REF==bsa_svs.REF, bsa_svs[fb_ad], bsa_svs[fb_ad_alt].astype(str) + ',' + bsa_svs[fb_ad_ref].astype(str))
+            bsa_svs[sb_ad] = np.where(bsa_svs.p_REF==bsa_svs.REF, bsa_svs[sb_ad], bsa_svs[sb_ad_alt].astype(str) + ',' + bsa_svs[sb_ad_ref].astype(str))
+            bsa_svs[[fb_ad_ref, fb_ad_alt]] = bsa_svs[fb_ad].str.split(',', expand=True).astype(int)
+            bsa_svs[[sb_ad_ref, sb_ad_alt]] = bsa_svs[sb_ad].str.split(',', expand=True).astype(int)
+            bsa_svs['ad_Swap'] = np.where(bsa_svs.p_REF==bsa_svs.REF, 1, -1)
+            bsa_svs.to_csv(os.path.join(filtering_path, 'bsa_svs_after.csv'), index=None)
+
+        if need_di == True:
+            bsa_svs['DI'] = di(selected_chrms, bsa_svs)
+            bsa_svs.to_csv(os.path.join(dgns_path, 'bsa_svs_di.csv'))
+            bsa_svs = bsa_svs[bsa_svs.DI==1]
 
         # Remove low LD SVs to meet the z-test sample size requirement
         # bsa_svs = bsa_svs[(bsa_svs[fb_ld]>=30) & (bsa_svs[sb_ld]>=30)]
@@ -1365,12 +1499,15 @@ else:
         bsa_svs[sb_af] = bsa_svs[sb_ad_alt]/bsa_svs[sb_ld]
         bsa_svs['Delta_AF'] = bsa_svs[sb_af] - bsa_svs[fb_af]
 
+        if num_ipfiles == 1:
+            bsa_svs['Delta_AF'] = bsa_svs['Delta_AF'].abs()
+
         # Calculate G-statistic
         bsa_svs['G_S'] = g_statistic_array(bsa_svs[fb_ad_ref], bsa_svs[fb_ad_alt], bsa_svs[sb_ad_ref], bsa_svs[sb_ad_alt])
 
         fb_af_ci, sb_af_ci = fb_id+'.AF_CI', sb_id+'.AF_CI'
-        # fb_af_ci0995, sb_af_ci0995 = fb_af_ci+'0995', sb_af_ci+'0995'
-        # fb_af_ci0005, sb_af_ci0005 = fb_af_ci+'0005', sb_af_ci+'0005'
+        # fb_af_ci_ub, sb_af_ci_ub = fb_af_ci+'_ub', sb_af_ci+'_ub'
+        # fb_af_ci_lb, sb_af_ci_lb = fb_af_ci+'_lb', sb_af_ci+'_lb'
 
         try:
             from fisher import pvalue_npy
@@ -1428,16 +1565,16 @@ else:
 
         if test == True:
             # Create new columns for 99% Δ(allele frequency) confidence intervals, and 99.5 percentile G-statistic thresholds
-            # bsa_svs[fb_af_ci0005] = bsa_svs[fb_af_ci].apply(lambda x: x[0]).astype(float)
-            # bsa_svs[fb_af_ci0995] = bsa_svs[fb_af_ci].apply(lambda x: x[1]).astype(float)
-            # bsa_svs[sb_af_ci0005] = bsa_svs[sb_af_ci].apply(lambda x: x[0]).astype(float)
-            # bsa_svs[sb_af_ci0995] = bsa_svs[sb_af_ci].apply(lambda x: x[1]).astype(float)
-            bsa_svs['DAF_CI0005'] = bsa_svs['DAF_CI'].apply(lambda x: x[0]).astype(float)
-            bsa_svs['DAF_CI0995'] = bsa_svs['DAF_CI'].apply(lambda x: x[1]).astype(float)
-            bsa_svs['GS_CI0995'] = bsa_svs['GS_CI'].apply(lambda x: x[1]).astype(float)
+            # bsa_svs[fb_af_ci_lb] = bsa_svs[fb_af_ci].apply(lambda x: x[0]).astype(float)
+            # bsa_svs[fb_af_ci_ub] = bsa_svs[fb_af_ci].apply(lambda x: x[1]).astype(float)
+            # bsa_svs[sb_af_ci_lb] = bsa_svs[sb_af_ci].apply(lambda x: x[0]).astype(float)
+            # bsa_svs[sb_af_ci_ub] = bsa_svs[sb_af_ci].apply(lambda x: x[1]).astype(float)
+            bsa_svs['DAF_CI_LB'] = bsa_svs['DAF_CI'].apply(lambda x: x[0]).astype(float)
+            bsa_svs['DAF_CI_UB'] = bsa_svs['DAF_CI'].apply(lambda x: x[1]).astype(float)
+            bsa_svs['GS_Thrshld'] = bsa_svs['GS_CI'].apply(lambda x: x[1]).astype(float)
 
-            # falseSVs = bsa_svs[((bsa_svs[fb_af] < bsa_svs[fb_af_ci0005]) & (bsa_svs[sb_af] < bsa_svs[sb_af_ci0005])) | \
-            #     ((bsa_svs[fb_af] > bsa_svs[fb_af_ci0995]) & (bsa_svs[sb_af] > bsa_svs[sb_af_ci0995]))]
+            # falseSVs = bsa_svs[((bsa_svs[fb_af] < bsa_svs[fb_af_ci_lb]) & (bsa_svs[sb_af] < bsa_svs[sb_af_ci_lb])) | \
+            #     ((bsa_svs[fb_af] > bsa_svs[fb_af_ci_ub]) & (bsa_svs[sb_af] > bsa_svs[sb_af_ci_ub]))]
 
             # bsa_svs = bsa_svs.drop(index=falseSVs.index)
 
@@ -1448,8 +1585,8 @@ else:
         if mirror_index == -1:
             bsa_svs['Delta_AF'] = bsa_svs['Delta_AF'] * -1
             if test == True:
-                bsa_svs['DAF_CI0995'] = bsa_svs['DAF_CI0995'] * -1
-                bsa_svs['DAF_CI0005'] = bsa_svs['DAF_CI0005'] * -1
+                bsa_svs['DAF_CI_UB'] = bsa_svs['DAF_CI_UB'] * -1
+                bsa_svs['DAF_CI_LB'] = bsa_svs['DAF_CI_LB'] * -1
 
         # The above calculation may generate 'NA' value(s) for some SVs. Remove SVs with such 'NA' value(s)
         bsa_svs.dropna(inplace=True)
@@ -1464,8 +1601,8 @@ else:
         # Constructing bsa_svs_1 to make the saved file smaller via eliminating some fields that can be easily calculated.
         # Reorganize the columns.
         if test == True:
-            reorder_columns = ['CHROM', 'POS', 'REF', 'ALT', 'QUAL', fb_gt, fb_ad, fb_ad_ref, fb_ad_alt, fb_ld, 'fb_ZScore', sm_fb_ad_alt, fb_af, fb_gq, sb_gt, sb_ad, sb_ad_ref, sb_ad_alt, sb_ld, 'sb_ZScore', sm_sb_ad_alt, sb_af, sb_gq, 'Delta_AF', 'FE_P', 'sm_FE_P', 'G_S', 'DAF_CI0005', 'DAF_CI0995', 'GS_CI0995', 'DAF_CI', 'GS_CI', 'STAT']
-            # reorder_columns = ['CHROM', 'POS', 'REF', 'ALT', 'QUAL', fb_gt, fb_ad, fb_ad_ref, fb_ad_alt, fb_ld, 'fb_ZScore', sm_fb_ad_alt, fb_af, fb_af_ci0005, fb_af_ci0995, fb_af_ci, fb_gq, sb_gt, sb_ad, sb_ad_ref, sb_ad_alt, sb_ld, 'sb_ZScore', sm_sb_ad_alt, sb_af, sb_af_ci0005, sb_af_ci0995, sb_af_ci, sb_gq, 'Delta_AF', 'FE_P', 'sm_FE_P', 'G_S', 'DAF_CI0005', 'DAF_CI0995', 'GS_CI0995', 'DAF_CI', 'GS_CI', 'STAT']
+            reorder_columns = ['CHROM', 'POS', 'REF', 'ALT', 'QUAL', fb_gt, fb_ad, fb_ad_ref, fb_ad_alt, fb_ld, 'fb_ZScore', sm_fb_ad_alt, fb_af, fb_gq, sb_gt, sb_ad, sb_ad_ref, sb_ad_alt, sb_ld, 'sb_ZScore', sm_sb_ad_alt, sb_af, sb_gq, 'Delta_AF', 'FE_P', 'sm_FE_P', 'G_S', 'DAF_CI_LB', 'DAF_CI_UB', 'GS_Thrshld', 'DAF_CI', 'GS_CI', 'STAT']
+            # reorder_columns = ['CHROM', 'POS', 'REF', 'ALT', 'QUAL', fb_gt, fb_ad, fb_ad_ref, fb_ad_alt, fb_ld, 'fb_ZScore', sm_fb_ad_alt, fb_af, fb_af_ci_lb, fb_af_ci_ub, fb_af_ci, fb_gq, sb_gt, sb_ad, sb_ad_ref, sb_ad_alt, sb_ld, 'sb_ZScore', sm_sb_ad_alt, sb_af, sb_af_ci_lb, sb_af_ci_ub, sb_af_ci, sb_gq, 'Delta_AF', 'FE_P', 'sm_FE_P', 'G_S', 'DAF_CI_LB', 'DAF_CI_UB', 'GS_Thrshld', 'DAF_CI', 'GS_CI', 'STAT']
         else:
             reorder_columns = ['CHROM', 'POS', 'REF', 'ALT', 'QUAL', fb_gt, fb_ad, fb_ad_ref, fb_ad_alt, fb_ld, 'fb_ZScore', sm_fb_ad_alt, fb_af, fb_gq, sb_gt, sb_ad, sb_ad_ref, sb_ad_alt, sb_ld, 'sb_ZScore', sm_sb_ad_alt, sb_af, sb_gq, 'Delta_AF', 'FE_P', 'sm_FE_P', 'G_S']
         # Remove unnecessary columns and reorganize the columns
@@ -1505,48 +1642,54 @@ else:
 
         thrshld_fe = thrshlds[0][1]
         thrshld_gs = thrshlds[1][1]
-        thrshld_af_n= thrshlds[2][0]
+        thrshld_af_n = thrshlds[2][0]
         thrshld_af_p = thrshlds[2][1]
+        thrshld_af_abs = thrshlds[3][1]
 
         with open(thrshld_file, 'w') as xie:
-            xie.write(str(thrshld_fe) + ' ' + str(thrshld_gs) + ' ' + str(thrshld_af_n) + ' ' + str(thrshld_af_p))
+            xie.write(' '.join([str(thrshld_fe), str(thrshld_gs), str(thrshld_af_n), str(thrshld_af_p), str(thrshld_af_abs)]))
     else:
         with open(thrshld_file, 'r') as du:
             threshold_list = du.readline().strip().split(' ')
             temp = [float(i) for i in threshold_list]
             thrshld_fe = temp[0]
             thrshld_gs = temp[1]
-            thrshld_af_n= temp[2]
+            thrshld_af_n = temp[2]
             thrshld_af_p = temp[3]
+            thrshld_af_abs = temp[4]
 
     # Identify likely trait-associated SVs
     bsa_svs = bsa_svs.copy()
     bsa_svs['sSV'] = np.where(bsa_svs['FE_P'] < alpha, 1, 0)
 
     # Plot layout setup
-    heightRatio = [1,0.8,0.8,0.8]
+    height_ratio = [1,0.8,0.8,0.8]
     xt_pro = xticks_property(chrmSzL)
-    fig, axs = plt.subplots(nrows=len(heightRatio), ncols=len(selected_chrms), figsize=(20, 12.8), sharex='col', sharey='row', 
-            gridspec_kw={'width_ratios': chrmSzL, 'height_ratios': heightRatio})
+    fig, axs = plt.subplots(nrows=len(height_ratio), ncols=len(selected_chrms), figsize=(20, 12.8), sharex='col', sharey='row', 
+            gridspec_kw={'width_ratios': chrmSzL, 'height_ratios': height_ratio})
 
     # Perform plotting
     bsaseq_plot(selected_chrms, bsa_svs)
 
-    peaklst = []
-    if additional_peaks.lower() == 'yes':
-        with open(os.path.join(path, 'additional_peaks.txt'), 'r') as inf:
-            for line in inf:
-                if not line.startswith('#'):
-                    a = line.rstrip().split()
+    peaklst = pk_list(sv_region)
+    # peaklst = []
+    # if additional_peaks.lower() == 'yes':
+    #     with open(os.path.join(path, 'additional_peaks.txt'), 'r') as inf:
+    #         for line in inf:
+    #             if not line.startswith('#'):
+    #                 a = line.rstrip().split()
 
-                    if a[0] in selected_chrms:
-                        additional_sw = sw_data_frame[(sw_data_frame.CHROM==a[0]) & (sw_data_frame.POS >= int(a[1])) & (sw_data_frame.POS <= int(a[2]))]
-                        peak_sw = additional_sw[additional_sw[r'sSV/totalSV'] == additional_sw[r'sSV/totalSV'].max()]
+    #                 if a[0] in selected_chrms:
+    #                     additional_sw = sw_data_frame[(sw_data_frame.CHROM==a[0]) & (sw_data_frame.POS >= int(a[1])) & (sw_data_frame.POS <= int(a[2]))]
+    #                     peak_sw = additional_sw[additional_sw[r'sSV/totalSV'] == additional_sw[r'sSV/totalSV'].max()]
+    #                 else:
+    #                     print('Looks like one or more chromosome names are not right. Please check your additional_peaks.txt file.')
+    #                     sys.exit()
 
-                    for row in peak_sw.itertuples():
-                        peaklst.append([row.CHROM, row.POS])
-    else:
-        peaklst = pkList(sv_region)
+    #                 for row in peak_sw.itertuples():
+    #                     peaklst.append([row.CHROM, row.POS])
+    # else:
+    #     peaklst = pk_list(sv_region)
 
     # peaklst = sorted(peaklst, key = lambda x: (int(x[0]), int(x[1])))
 
@@ -1583,9 +1726,9 @@ fig.text(0.001, 0.680, 'b', weight='bold', ha='left', va='bottom')
 fig.text(0.001, 0.465, 'c', weight='bold', ha='left', va='bottom')
 fig.text(0.001, 0.244, 'd', weight='bold', ha='left', va='bottom')
 
-fig.savefig(os.path.join(results, 'PyBSASeq_WP.pdf'))
-fig.savefig(os.path.join(results, 'PyBSASeq_WP.eps'))
-fig.savefig(os.path.join(results, 'PyBSASeq_WP.svg'))
-fig.savefig(os.path.join(results, 'PyBSASeq_WP.png'), dpi=600)
+fig.savefig(os.path.join(results, 'PyBSASeq.pdf'))
+fig.savefig(os.path.join(results, 'PyBSASeq.eps'))
+fig.savefig(os.path.join(results, 'PyBSASeq.svg'))
+fig.savefig(os.path.join(results, 'PyBSASeq.png'), dpi=600)
 
-print('\nIf two or more peaks and all the values in between are greater than the threshold, these peaks would be recognized as a single peak. You can rerun the script if additional peaks are desired to be identified, a file \'additional_peaks.txt\' (template provided) containing the chromosome ID and the range info (start and end) of the interested regions needs to be created in the working directory.\n')
+print('\nIf two or more peaks and all the values in between are greater than the threshold, these peaks would be recognized as a single peak. You can rerun the script with the region option.\n')
