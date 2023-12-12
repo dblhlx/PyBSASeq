@@ -33,7 +33,7 @@ The default size of the sliding window is 2000000 (base pairs) and the increment
 
 `-s slidingWindowSize,incrementalStep`
 
-Four files (sliding_windows.csv, sv_fagz.csv, sv_fagz_fep.csv, and threshold.txt) and a folder containing BSASeq.csv and BSASeq.pdf will be generated in the `./Results` folder after succesfully running the script. You may find that gaps between subplots in BSASeq.pdf are too wide or too narrow. You can finetune the gaps using the option below:
+Four files (sliding_windows.csv, sv_fagz.csv, sv_fagz_fep.csv, and threshold.txt) and a folder containing BSASeq.csv and BSASeq.pdf will be generated in the `./Results` folder after succesfully running the script. You may find that gaps between subplots in BSASeq.pdf are too wide or too narrow. You can finetune the gaps by changing the values of `a` and/or `b` using the option below:
 
 `-a True -g a,b,c,d,e,f`
 
@@ -41,7 +41,7 @@ Four files (sliding_windows.csv, sv_fagz.csv, sv_fagz_fep.csv, and threshold.txt
 - b - the vertical gap
 - c, d, e, and f - the top, bottom, left, and right margins, respectively
 
-The default values for a, b, c, d, e, and f are 0.028, 0.056, 0.0264, 0.054, 0.076, 0.002, 0.002, respectively. I ususally change the values of `a` and/or `b`. This process is very fast by using the `sliding_windows.csv` and `threshold.txt` files.
+The default values for a, b, c, d, e, and f are 0.028, 0.056, 0.0264, 0.054, 0.076, 0.002, 0.002, respectively. This process is very fast by using the `sliding_windows.csv` and `threshold.txt` files.
 
 If two or more peaks/valleys and all the values in between are beyond the confidence intervals/threshold, only the highest peak or the lowerest valley will be identified as the peak/valley of this region. The positions of the other peaks/valleys can be identified and their significance can be verified using the option below.
 
@@ -51,16 +51,16 @@ If two or more peaks/valleys and all the values in between are beyond the confid
 - b - the start point of a chromosomal fragment
 - c - the end point of a chromosomal fragment
 
-Chromosome IDs should be digits, and use 1000 - 1005 to represent sex chromosomes X, Y, Z, W, U, and V
+Right now, this option will not work if the chromosome IDs in the reference genome sequences are not digits, using 1000 - 1005 to represent sex chromosomes X, Y, Z, W, U, and V
 
 #### Workflow
-1. SNP filtering
-2. Perform Fisher's exact test using the AD values of each SNP in both bulks. A SNP would be identified as an sSNP if its p-value is less than alpha. In the meantime, simulated REF/ALT reads of each SNP is obtained via simulation under null hypothesis, and Fisher's exact test is also performed using these simulated AD values; for each SNP, it would be an sSNP if its p-value is less than smalpha. Identification of sSNPs from the simulated dataset is for threshold calculation. A file named "COMPLETE.txt" will be writen to the working directory if Fisher's exact test is successful, and the results of Fisher's exact test are saved in a .csv file. The "COMPLETE.txt" file needs to be deleted in case starting over is desired. 
+1. Structural variant (SV) filtering
+2. Perform Fisher's exact test using the AD values of each SV in both bulks. A SV would be identified as an sSV if its p-value is less than alpha. In the meantime, simulated REF/ALT reads of each SV is obtained via simulation under null hypothesis, and Fisher's exact test is also performed using these simulated AD values; for each SV, it would be an sSV if its p-value is less than smalpha. Identification of sSVs from the simulated dataset is for threshold calculation.
 3. Threshold calculation. The result is saved in the "threshold.txt" file. The "threshold.txt" file needs to be deleted if starting over is desired (e.g, if the size of the sliding window is changed).
 4. Plotting.
 
 #### Dataset
-Two SNP datasets for testing purpose, one for the bulks while the other for the parents, are stored in the [Data](https://github.com/dblhlx/PyBSASeq/tree/master/Data) folder. Both .csv files were generated via [GATK4](https://software.broadinstitute.org/gatk/download/) using the sequencing data from [the work of Lahari _et al_](https://www.ebi.ac.uk/ena/browser/view/PRJEB27629).
+Two SV datasets for testing purpose, one for the bulks while the other for the parents, are stored in the [Data](https://github.com/dblhlx/PyBSASeq/tree/master/Data) folder. Both .csv files were generated via [GATK4](https://software.broadinstitute.org/gatk/download/) using the sequencing data from [the work of Lahari _et al_](https://www.ebi.ac.uk/ena/browser/view/PRJEB27629).
 
 #### Other methods for BSA-Seq data analysis
 BSA-Seq data analysis can be done using either the [SNP index (allele frequency) method](https://onlinelibrary.wiley.com/doi/full/10.1111/tpj.12105) or the [G-statistic method](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002255) as well. I implemented both methods in Python for the purpose of comparison: [PySNPIndex](https://github.com/dblhlx/PySNPIndex) and [PyGStatistic](https://github.com/dblhlx/PyGStatistic). The Python implementation of the original [G-statistic method](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002255) by Magwene can be found [here](https://bitbucket.org/pmagwene/bsaseq/src/master/) (just found this site today, 6/27/2019), and the R implementation of both methods by Mansfeld can be found [here](https://github.com/bmansfeld/QTLseqr).
