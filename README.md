@@ -13,14 +13,13 @@ A novel algorithm with high detection power for BSA-Seq data analysis - the sign
 Python 3.6 or above is required to run the script.
 
 #### Usage
-If only the bulk genomes were sequenced, use the script in the folder /BulksOnly; if the genomes of both the bulks and the parents were sequenced, use the script in the folder /Parents_Bulks.
 
 `$ python PyBSASeq.py -i input -o output -p popstrct -b fbsize,sbsize`
 
 Here are the details of the options used in the script:
-- input – the names of the input files (the GATK4-generated tsv/csv file). If you have variant calling data from both theparents and the bulks, the format is as follows: parents.tsv,bulks.tsv. If you have only the variant calling data of the bulks, the format is as follows: bulks.tsv. The script and the input files should be in the same folder.
+- input – the names of the input files (the GATK4-generated tsv/csv file). If you have variant calling data from both the parents and the bulks, the format is as follows: `parents.tsv,bulks.tsv`. If you have only the variant calling data of the bulks, the format is as follows: `bulks.tsv`. The script `PyBSASeq.py` can handle both situations. The script and the input files should be in the same folder.
 - output – the name of the output file
-- popstrct – population structure; three choices available: F2 for an F2 population, RIL for a population of recombinant inbred lines, or BC for a backcross population
+- popstrct – population structure; three choices available: F2 for an F<sub>2</sub> population, RIL for a population of recombinant inbred lines, or BC for a backcross population
 - fbsize – the number of individuals in the first bulk
 - sbsize – the number of individuals in the second bulk
 
@@ -44,7 +43,7 @@ Four files (sliding_windows.csv, sv_fagz.csv, sv_fagz_fep.csv, and threshold.txt
 
 The default values for a, b, c, d, e, and f are 0.028, 0.056, 0.0264, 0.054, 0.076, 0.002, 0.002, respectively. I ususally change the values of `a` and/or `b`. This process is very fast by using the `sliding_windows.csv` and `threshold.txt` files.
 
-If two or more peaks and all the values in between are greater than the threshold, these peaks would be recognized as a single peak. The positions of other peaks can be identified and their significance can be verified using the option below.
+If two or more peaks and all the values in between are greater than the threshold, these peaks would be recognized as a single peak. The positions of the other peaks can be identified and their significance can be verified using the option below.
 
 `-e a1,b1,c1,a2,b2,c2,......,an,bn,cn`
 
