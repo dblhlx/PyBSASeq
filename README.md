@@ -62,5 +62,9 @@ Right now, this option will not work if the chromosome IDs in the reference geno
 #### Dataset
 Two SV datasets for testing purpose, one for the bulks while the other for the parents, are stored in the [Data](https://github.com/dblhlx/PyBSASeq/tree/master/Data) folder. Both .csv files were generated via [GATK4](https://software.broadinstitute.org/gatk/download/) using the sequencing data from [the work of Lahari _et al_](https://www.ebi.ac.uk/ena/browser/view/PRJEB27629).
 
+#### Bug report
+
+Please report [here](https://github.com/dblhlx/PyBSASeq/issues) if encounter any issue. I can receive issue notifications now.
+
 #### Other methods for BSA-Seq data analysis
 BSA-Seq data analysis can be done using either the [SNP index (allele frequency) method](https://onlinelibrary.wiley.com/doi/full/10.1111/tpj.12105) or the [G-statistic method](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002255) as well. I implemented both methods in Python for the purpose of comparison: [PySNPIndex](https://github.com/dblhlx/PySNPIndex) and [PyGStatistic](https://github.com/dblhlx/PyGStatistic). The Python implementation of the original [G-statistic method](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002255) by Magwene can be found [here](https://bitbucket.org/pmagwene/bsaseq/src/master/) (just found this site today, 6/27/2019), and the R implementation of both methods by Mansfeld can be found [here](https://github.com/bmansfeld/QTLseqr).
