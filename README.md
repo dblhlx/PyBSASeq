@@ -55,8 +55,8 @@ Right now, this option will not work if the chromosome IDs in the reference geno
 
 #### Workflow
 1. Structural variant (SV) filtering
-2. Perform Fisher's exact test using the AD values of each SV in both bulks. A SV would be identified as an sSV if its p-value is less than alpha. In the meantime, simulated REF/ALT reads of each SV is obtained via simulation under null hypothesis, and Fisher's exact test is also performed using these simulated AD values; for each SV, it would be an sSV if its p-value is less than smalpha. Identification of sSVs from the simulated dataset is for threshold calculation.
-3. Threshold calculation. The result is saved in the "threshold.txt" file. The "threshold.txt" file needs to be deleted if starting over is desired (e.g, if the size of the sliding window is changed).
+2. Perform Fisher's exact test using the AD values of each SV in both bulks. A SV would be identified as an sSV if its p-value is less than `alpha`. In the meantime, simulated REF/ALT reads of each SV is obtained via simulation under null hypothesis, and Fisher's exact test is also performed using these simulated AD values; for each SV, it would be an sSV if its p-value is less than `smalpha`. Identification of sSVs from the simulated dataset is for threshold calculation.
+3. Threshold calculation. The result is saved in the `threshold.txt` file. The `threshold.txt` file needs to be deleted if starting over is desired (e.g, if the size of the sliding window is changed).
 4. Plotting.
 
 #### Dataset
