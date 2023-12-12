@@ -27,7 +27,7 @@ The default cutoff p-value for identifying significant structural variants (sSV)
 
 `-v alpha,smalpha`
 
-alpha and smalpha should be in the range of 0.0 – 1.0, the chosen value should make statistical sense. The greater the smalpha value, the higher the threshold and the lower the false positive rate.
+`alpha` and `smalpha` should be in the range of 0.0 – 1.0, the chosen value should make statistical sense. The greater the `smalpha` value, the higher the threshold and the lower the false positive rate.
 
 The default size of the sliding window is 2000000 (base pairs) and the incremental step is 10000 (base pairs), and their values can be changed using the following option:
 
