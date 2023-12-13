@@ -1731,4 +1731,4 @@ fig.savefig(os.path.join(results, 'PyBSASeq.eps'))
 fig.savefig(os.path.join(results, 'PyBSASeq.svg'))
 fig.savefig(os.path.join(results, 'PyBSASeq.png'), dpi=600)
 
-print('\nIf two or more peaks and all the values in between are greater than the threshold, these peaks would be recognized as a single peak. You can rerun the script with the region option.\n')
+print('\nIf two or more peaks and all the values in between are beyond the confidence intervals/threshold, only the highest peak or the lowerest valley will be identified as the peak/valley of this region. The positions of the other peaks/valleys can be identified and their significance can be verified by rerunning the script using the region option.\n')
