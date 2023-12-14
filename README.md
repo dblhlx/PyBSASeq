@@ -17,8 +17,8 @@ Python 3.6 or above is required to run the script.
 `$ python PyBSASeq.py -i input -o output -p popstrct -b fbsize,sbsize`
 
 Here are the details of the options used in the script:
-- `input` – the names of the input files (the GATK4-generated tsv/csv file). If you have variant calling data from both the parents and the bulks, the format is as follows: `parents.tsv,bulks.tsv`. If you have only the variant calling data of the bulks, the format is as follows: `bulks.tsv`. The script `PyBSASeq.py` can handle both situations. The script and the input files should be in the same folder.
-- `output` – the name of the output file
+- `input` – the names of the input files (the GATK4-generated tsv/csv file). If you have variant calling data from both the parents and the bulks, the format is as follows: `parents.tsv,bulks.tsv`. If you have only the variant calling data of the bulks, the format is as follows: `bulks.tsv`. The script `PyBSASeq.py` can handle both situations now. The script and the input files should be in the same folder.
+- `output` – the name of the output file. Default is `BSASeq.csv`
 - `popstrct` – population structure; three choices available: F2 for an F<sub>2</sub> population, RIL for a population of recombinant inbred lines, or BC for a backcross population
 - `fbsize` – the number of individuals in the first bulk
 - `sbsize` – the number of individuals in the second bulk
