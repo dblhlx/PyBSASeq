@@ -17,13 +17,13 @@ Python 3.6 or above is required to run the script.
 `$ python PyBSASeq.py -i input -o output -p popstrct -b fbsize,sbsize`
 
 Here are the details of the options used in the script:
-- input – the names of the input files (the GATK4-generated tsv/csv file). If you have variant calling data from both the parents and the bulks, the format is as follows: `parents.tsv,bulks.tsv`. If you have only the variant calling data of the bulks, the format is as follows: `bulks.tsv`. The script `PyBSASeq.py` can handle both situations. The script and the input files should be in the same folder.
-- output – the name of the output file
-- popstrct – population structure; three choices available: F2 for an F<sub>2</sub> population, RIL for a population of recombinant inbred lines, or BC for a backcross population
-- fbsize – the number of individuals in the first bulk
-- sbsize – the number of individuals in the second bulk
+- `input` – the names of the input files (the GATK4-generated tsv/csv file). If you have variant calling data from both the parents and the bulks, the format is as follows: `parents.tsv,bulks.tsv`. If you have only the variant calling data of the bulks, the format is as follows: `bulks.tsv`. The script `PyBSASeq.py` can handle both situations. The script and the input files should be in the same folder.
+- `output` – the name of the output file
+- `popstrct` – population structure; three choices available: F2 for an F<sub>2</sub> population, RIL for a population of recombinant inbred lines, or BC for a backcross population
+- `fbsize` – the number of individuals in the first bulk
+- `sbsize` – the number of individuals in the second bulk
 
-The default cutoff p-value for identifying significant structural variants (sSV) from the SV dataset is 0.01 (alpha), and the default cutoff p-value for identifying sSVs from the simulated dataset is 0.01 (smalpha). These values can be changed using the following options:
+The default cutoff p-value for identifying significant structural variants (sSV) from the SV dataset is 0.01 (`alpha`), and the default cutoff p-value for identifying sSVs from the simulated dataset is 0.01 (`smalpha`). These values can be changed using the following options:
 
 `-v alpha,smalpha`
 
@@ -33,25 +33,25 @@ The default size of the sliding window is 2000000 (base pairs) and the increment
 
 `-s slidingWindowSize,incrementalStep`
 
-Four files (sliding_windows.csv, sv_fagz.csv, sv_fagz_fep.csv, and threshold.txt) and a folder containing BSASeq.csv and BSASeq.pdf will be generated in the `./Results` folder after succesfully running the script. You may find that gaps between subplots in BSASeq.pdf are too wide or too narrow. You can finetune the gaps by changing the values of `a` and/or `b` using the option below:
+Four files (`sliding_windows.csv`, `sv_fagz.csv`, `sv_fagz_fep.csv`, and `threshold.txt`) and a folder in the `date_time` format containing `BSASeq.csv` and `BSASeq.pdf` will be generated in the `./Results` folder after succesfully running the script. If gaps between subplots in BSASeq.pdf are too wide or too narrow, you can rerun the script to fine-tune the gaps by changing the values of `a` and/or `b` using the options below:
 
 `-a True -g a,b,c,d,e,f`
 
-- a - the horizontal gap
-- b - the vertical gap
-- c, d, e, and f - the top, bottom, left, and right margins, respectively
+- `a` - the horizontal gap
+- `b` - the vertical gap
+- `c`, `d`, `e`, and `f` - the top, bottom, left, and right margins, respectively
 
-The default values for a, b, c, d, e, and f are 0.028, 0.056, 0.0264, 0.054, 0.076, 0.002, 0.002, respectively. This process is very fast by using the `sliding_windows.csv` and `threshold.txt` files.
+The default values for `a`, `b`, `c`, `d`, `e`, and `f` are 0.028, 0.056, 0.0264, 0.054, 0.076, 0.002, 0.002, respectively. The script uses the `sliding_windows.csv` and `threshold.txt` files generated previously for plotting, it is very fast.
 
 If two or more peaks/valleys and all the values in between are beyond the confidence intervals/threshold, only the highest peak or the lowerest valley will be identified as the peak/valley of this region. The positions of the other peaks/valleys can be identified and their significance can be verified using the option below.
 
 `-e a1,b1,c1,a2,b2,c2,......,an,bn,cn`
 
-- a - chromosome id
-- b - the start point of a chromosomal fragment
-- c - the end point of a chromosomal fragment
+- `a` - chromosome id
+- `b` - the start point of a chromosomal fragment
+- `c` - the end point of a chromosomal fragment
 
-Right now, this option will not work if the chromosome IDs in the reference genome sequences are not digits, using 1000 - 1005 to represent sex chromosomes X, Y, Z, W, U, and V
+Right now, this option will not work if the chromosome IDs in the reference genome sequences are not digits with the exception of the sex chromosomes; we can use 1000 - 1005 to represent sex chromosomes X, Y, Z, W, U, and V when specify regions on sex chromosomes.
 
 #### Workflow
 1. Structural variant (SV) filtering

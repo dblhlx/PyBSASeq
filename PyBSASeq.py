@@ -1226,7 +1226,7 @@ ap.add_argument('-g', '--gaps', required=False, help='gaps between subplots: hor
 ap.add_argument('-m', '--smoothing', required=False, help='smoothing parameters: window_len,polyorder', type=lambda s: [int(t) for t in s.split(',')], default='51,3')
 ap.add_argument('-t','--smooth', type=bool, required=False, help='smooth the plot', default=True)
 ap.add_argument('--chromosome_order', required=False, help='manually set chromosome order', type=lambda s: [t for t in s.split(',')], default=False)
-ap.add_argument('-d', '--data_independence', required=False, help='make deta point independent of each other', type=lambda s: [int(t) for t in s.split(',')], default='100,1')
+ap.add_argument('-d', '--read_length', type=int, required=False, help='make deta point independent of each other', default=100)
 ap.add_argument('-e', '--region', required=False, help='interested region(s): chrm,start,end', type=lambda s: [int(t) for t in s.split(',')], default='-1')
 ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SVs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,1')
 ap.add_argument('-a','--adjust_gap', type=bool, required=False, help='adjust gaps between subplot', default=False)
@@ -1236,12 +1236,7 @@ chrm_order = args.chromosome_order
 input_files = args.input
 pop_struct = args.popstruct
 rep = args.replication
-data_independence = args.data_independence
-sr_length, need_di_value = data_independence[0], data_independence[1]
-if need_di_value == 1:
-    need_di = True
-else:
-    need_di = False
+sr_length = args.read_length
 fb_size, sb_size = args.bulksizes[0], args.bulksizes[1]
 alpha, sm_alpha = args.pvalues[0], args.pvalues[1]
 sw_size, incremental_step = args.slidingwindow[0], args.slidingwindow[1]
@@ -1476,7 +1471,7 @@ else:
             bsa_svs['ad_Swap'] = np.where(bsa_svs.p_REF==bsa_svs.REF, 1, -1)
             bsa_svs.to_csv(os.path.join(filtering_path, 'bsa_svs_after.csv'), index=None)
 
-        if need_di == True:
+        if sr_length >= 30:
             bsa_svs['DI'] = di(selected_chrms, bsa_svs)
             bsa_svs.to_csv(os.path.join(dgns_path, 'bsa_svs_di.csv'))
             bsa_svs = bsa_svs[bsa_svs.DI==1]
