@@ -33,7 +33,7 @@ The default size of the sliding window is 2000000 (base pairs) and the increment
 
 `-s slidingWindowSize,incrementalStep`
 
-Four files (`sliding_windows.csv`, `sv_fagz.csv`, `sv_fagz_fep.csv`, and `threshold.txt`) and a folder in the `date_time` format containing `BSASeq.csv` and `BSASeq.pdf` will be generated in the `./Results` folder after succesfully running the script. If gaps between subplots in BSASeq.pdf are too wide or too narrow, you can rerun the script to fine-tune the gaps by changing the values of `a` and/or `b` using the options below:
+Four files (`sliding_windows.csv`, `sv_fagz.csv`, `sv_fagz_fep.csv`, and `threshold.txt`) and a folder in the `date_time` format containing `BSASeq.csv` and `BSASeq.pdf` will be generated in the `./Results` folder after succesfully running the script. If gaps between subplots in `BSASeq.pdf` are too wide or too narrow, we can rerun the script to fine-tune the gaps by changing the values of `a` and/or `b` using the options below:
 
 `-a True -g a,b,c,d,e,f`
 
@@ -41,9 +41,9 @@ Four files (`sliding_windows.csv`, `sv_fagz.csv`, `sv_fagz_fep.csv`, and `thresh
 - `b` - the vertical gap
 - `c`, `d`, `e`, and `f` - the top, bottom, left, and right margins, respectively
 
-The default values for `a`, `b`, `c`, `d`, `e`, and `f` are 0.028, 0.056, 0.0264, 0.054, 0.076, 0.002, 0.002, respectively. The script uses the `sliding_windows.csv` and `threshold.txt` files generated previously for plotting, it is very fast.
+The default values for `a`, `b`, `c`, `d`, `e`, and `f` are 0.028, 0.056, 0.0264, 0.054, 0.076, 0.002, 0.002, respectively. The script uses the `sliding_windows.csv` and `threshold.txt` files generated previously for plotting, and it is very fast.
 
-If two or more peaks/valleys and all the values in between are beyond the confidence intervals/threshold, only the highest peak or the lowerest valley will be identified as the peak/valley of this region. The positions of the other peaks/valleys can be identified and their significance can be verified using the option below.
+If two or more peaks/valleys and all the values in between are beyond the confidence intervals/thresholds, only the highest peak or the lowerest valley will be identified as the peak/valley of this region. We can rerun the script to identify the positions of the other peaks/valleys and test their significance using the option below:
 
 `-e a1,b1,c1,a2,b2,c2,......,an,bn,cn`
 
@@ -51,7 +51,7 @@ If two or more peaks/valleys and all the values in between are beyond the confid
 - `b` - the start point of a chromosomal fragment
 - `c` - the end point of a chromosomal fragment
 
-Right now, this option will not work if the chromosome IDs in the reference genome sequences are not digits with the exception of the sex chromosomes; we can use 1000 - 1005 to represent sex chromosomes X, Y, Z, W, U, and V when specify regions on sex chromosomes.
+Right now, this option will not work if the chromosome IDs in the reference genome sequences are not digits, with the exception of sex chromosomes; we can use 1000 - 1005 to respectively represent sex chromosomes X, Y, Z, W, U, and V when specify regions on these chromosomes.
 
 #### Workflow
 1. Structural variant (SV) filtering
