@@ -22,7 +22,7 @@ def sm_allelefreq(pop_struc, bulk_size, rep):
 
     An AA, Aa, and aa individual carries 0%, 50%, and 100% of the alt (a) allele, respectively.
     If A/a is not associated with the trait (null hypothesis), the AA:Aa:aa ratios are 0.25:0.5:0.25, 0.5:0:0.5, 
-    and 0.5:0.5:0, respectively, inboth bulks of an F2 population, an RIL population, and a back crossed population.
+    and 0.5:0.5:0, respectively, in both bulks of an F2 population, an RIL population, or a back crossed population.
     '''
     freq_list = []
     pop = [0.0, 0.5, 1.0]
