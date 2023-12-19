@@ -6,6 +6,13 @@ __pycache__/
 # C extensions
 *.so
 
+# Other folders/files to be ignored 
+temp/
+Results/
+FilteredSVs/
+Data/Rice/parents.tsv
+Data/Rice/bulks.csv
+
 # Distribution / packaging
 .Python
 build/

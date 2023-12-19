@@ -33,7 +33,7 @@ The default size of the sliding window is 2000000 (base pairs) and the increment
 
 `-s slidingWindowSize,incrementalStep`
 
-Four files (`sliding_windows.csv`, `sv_fagz.csv`, `sv_fagz_fep.csv`, and `threshold.txt`) and a folder in the `date_time` format containing `BSASeq.csv` and `BSASeq.pdf` will be generated in the `./Results` folder after succesfully running the script. If gaps between subplots in `BSASeq.pdf` are too wide or too narrow, we can rerun the script to fine-tune the gaps by changing the values of `a` and/or `b` using the options below:
+Four files (`sliding_windows.csv`, `sv_fagz.csv`, `sv_fagz_fep.csv`, and `threshold.txt`) and a folder in the `date_time` format containing `BSASeq.csv` and `BSASeq.pdf` will be generated in the `./Results` folder after succesfully running the script. If gaps between subplots in `PyBSASeq.pdf` are too wide or too narrow, we can rerun the script to fine-tune the gaps by changing the values of `a` and/or `b` using the options below:
 
 `-a True -g a,b,c,d,e,f`
 
@@ -51,7 +51,7 @@ If two or more peaks/valleys and all the values in between are beyond the confid
 - `b` - the start point of a chromosomal fragment
 - `c` - the end point of a chromosomal fragment
 
-Right now, this option will not work if the chromosome IDs in the reference genome sequences are not digits, with the exception of sex chromosomes; we can use 1000 - 1005 to respectively represent sex chromosomes X, Y, Z, W, U, and V when specify regions on these chromosomes.
+Right now, this option will not work if the chromosome IDs in the reference genome sequences are not digits, with the exception of sex chromosomes; we can use 1000 - 1005 to respectively represent sex chromosomes X, Y, Z, W, U, and V when specify regions on these chromosomes. Multiple regions on the same chromsome can be selected.
 
 #### Workflow
 1. Structural variant (SV) filtering
