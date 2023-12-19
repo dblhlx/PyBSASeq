@@ -22,7 +22,7 @@ def sm_allelefreq(pop_struc, bulk_size, rep):
 
     An AA, Aa, and aa individual carries 0%, 50%, and 100% of the alt (a) allele, respectively.
     If A/a is not associated with the trait (null hypothesis), the AA:Aa:aa ratios are 0.25:0.5:0.25, 0.5:0:0.5, 
-    and 0.5:0.5:0, respectively, in a F2 population, a RIL population, and a back crossed population.
+    and 0.5:0.5:0, respectively, inboth bulks of an F2 population, an RIL population, and a back crossed population.
     '''
     freq_list = []
     pop = [0.0, 0.5, 1.0]
@@ -473,11 +473,11 @@ def sm_thresholds_gw(df):
         gw_sm_sb_ad_alt_arr = np.random.binomial(sm_sv_smpl[sb_ld], sb_freq).astype(np.uint)
         gw_sm_sb_ad_ref_arr = sm_sv_smpl[sb_ld].to_numpy().astype(np.uint) - gw_sm_sb_ad_alt_arr
 
-        __, __, gw_sm_fe_P_arr = pvalue_npy(gw_sm_fb_ad_alt_arr, gw_sm_fb_ad_ref_arr, gw_sm_sb_ad_alt_arr, gw_sm_sb_ad_ref_arr)
+        __, __, gw_sm_fe_p_arr = pvalue_npy(gw_sm_fb_ad_alt_arr, gw_sm_fb_ad_ref_arr, gw_sm_sb_ad_alt_arr, gw_sm_sb_ad_ref_arr)
         # gw_sm_fe_OR_arr = (gw_sm_fb_ad_alt_arr * gw_sm_sb_ad_ref_arr)/(gw_sm_fb_ad_ref_arr * gw_sm_sb_ad_alt_arr)
 
         # Calculate sSV/totalSV ratio
-        sSV_arr = np.where(gw_sm_fe_P_arr<sm_alpha, 1, 0)
+        sSV_arr = np.where(gw_sm_fe_p_arr<sm_alpha, 1, 0)
         gw_ratio_list.append(np.mean(sSV_arr))
 
         # Calculate G-statistic
