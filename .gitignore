@@ -10,8 +10,7 @@ __pycache__/
 temp/
 Results/
 FilteredSVs/
-Data/Rice/parents.tsv
-Data/Rice/bulks.csv
+Data/
 
 # Distribution / packaging
 .Python

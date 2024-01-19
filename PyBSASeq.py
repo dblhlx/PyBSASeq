@@ -787,9 +787,9 @@ def bsaseq_plot(chrm_list, datafr):
                     axs[2].plot(x, sg_y6, c=sv_threshold_color)
                     # Δ(allele frequency) confidence interval at the SV level
 
-                    if num_ipfiles == 1:
+                    if num_ipfiles == 1 and parent1 != 'ref':
                         axs[3].plot(x, sg_y9, c=sv_threshold_color)
-                    elif num_ipfiles == 2:
+                    elif num_ipfiles == 2 or parent1 == 'ref':
                         axs[3].plot(x, sg_y8, c=sv_threshold_color)
                         axs[3].plot(x, sg_y9, c=sv_threshold_color)
             else:
@@ -813,9 +813,9 @@ def bsaseq_plot(chrm_list, datafr):
                     # G-statistic threshold at the SV level
                     axs[2].plot(x, y6, c=sv_threshold_color)
                     # Δ(allele frequency) confidence interval at the SV level
-                    if num_ipfiles == 1:
+                    if num_ipfiles == 1 and parent1 != 'ref':
                         axs[3].plot(x, sg_y9, c=sv_threshold_color)
-                    elif num_ipfiles == 2:
+                    elif num_ipfiles == 2 or parent1 == 'ref':
                         axs[3].plot(x, sg_y8, c=sv_threshold_color)
                         axs[3].plot(x, sg_y9, c=sv_threshold_color)
 
@@ -824,9 +824,9 @@ def bsaseq_plot(chrm_list, datafr):
             axs[2].plot([plot_sp, x[-1]], [thrshld_gs, thrshld_gs], c=sw_threshold_color)
             # axs[3].plot([plot_sp, x[-1]], [thrshld_af, thrshld_af], c=sw_threshold_color)
             # axs[3].plot([plot_sp, x[-1]], [thrshld_af*(-1), thrshld_af*(-1)], c=sw_threshold_color)
-            if num_ipfiles == 1:
+            if num_ipfiles == 1 and parent1 != 'ref':
                 axs[3].plot([plot_sp, x[-1]], [thrshld_af_abs, thrshld_af_abs], c=sw_threshold_color)
-            elif num_ipfiles == 2:
+            elif num_ipfiles == 2 or parent1 == 'ref':
                 axs[3].plot([plot_sp, x[-1]], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
                 axs[3].plot([plot_sp, x[-1]], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
             # axs[1].plot(x, sm_thresholds_sw, c='m')
@@ -875,9 +875,9 @@ def bsaseq_plot(chrm_list, datafr):
                     # G-statistic threshold at the SV level
                     axs[2,i-1].plot(x, sg_y6, c=sv_threshold_color)
                     # Δ(allele frequency) confidence interval at the SV level
-                    if num_ipfiles == 1:
+                    if num_ipfiles == 1 and parent1 != 'ref':
                         axs[3,i-1].plot(x, sg_y9, c=sv_threshold_color)
-                    elif num_ipfiles == 2:
+                    elif num_ipfiles == 2 or parent1 == 'ref':
                         axs[3, i-1].plot(x, sg_y8, c=sv_threshold_color)
                         axs[3, i-1].plot(x, sg_y9, c=sv_threshold_color)
             else:
@@ -901,9 +901,9 @@ def bsaseq_plot(chrm_list, datafr):
                     # G-statistic threshold at the SV level
                     axs[2,i-1].plot(x, y6, c=sv_threshold_color)
                     # Δ(allele frequency) confidence interval at the SV level
-                    if num_ipfiles == 1:
+                    if num_ipfiles == 1 and parent1 != 'ref':
                         axs[3,i-1].plot(x, sg_y9, c=sv_threshold_color)
-                    elif num_ipfiles == 2:
+                    elif num_ipfiles == 2 or parent1 == 'ref':
                         axs[3, i-1].plot(x, sg_y8, c=sv_threshold_color)
                         axs[3, i-1].plot(x, sg_y9, c=sv_threshold_color)
             # Add the 99.5 percentile line as the threshold, x[-1] is the startpoint of the last sliding window of a chromosome
@@ -911,9 +911,9 @@ def bsaseq_plot(chrm_list, datafr):
             axs[2,i-1].plot([plot_sp, x[-1]], [thrshld_gs, thrshld_gs], c=sw_threshold_color)
             # axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af, thrshld_af], c=sw_threshold_color)
             # axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af*(-1), thrshld_af*(-1)], c=sw_threshold_color)
-            if num_ipfiles == 1:
+            if num_ipfiles == 1 and parent1 != 'ref':
                 axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af_abs, thrshld_af_abs], c=sw_threshold_color)
-            elif num_ipfiles == 2:
+            elif num_ipfiles == 2 or parent1 == 'ref':
                 axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
                 axs[3,i-1].plot([plot_sp, x[-1]], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
             # axs[1, i-1].plot(x, sm_thresholds_sw, c='m')
@@ -1036,9 +1036,9 @@ def bsaseq_plot_sw(chrm_list, datafr):
                     # G-statistic threshold at the SV level
                     axs[2].plot(ch.POS, ch.smthedGSThrshld, c=sv_threshold_color)
                     # Δ(allele frequency) confidence intervals at the SV level
-                    if num_ipfiles == 1:
+                    if num_ipfiles == 1 and parent1 != 'ref':
                         axs[3].plot(ch.POS, ch.smthedDAFPCI, c=sv_threshold_color)
-                    elif num_ipfiles == 2:
+                    elif num_ipfiles == 2 or parent1 == 'ref':
                         axs[3].plot(ch.POS, ch.smthedDAFPCI, c=sv_threshold_color)
                         axs[3].plot(ch.POS, ch.smthedDAFNCI, c=sv_threshold_color)
             else:
@@ -1052,9 +1052,9 @@ def bsaseq_plot_sw(chrm_list, datafr):
                     # G-statistic threshold at the SV level
                     axs[2].plot(ch.POS, ch.GS_Thrshld, c=sv_threshold_color)
                     # Δ(allele frequency) confidence intervals at the SV level
-                    if num_ipfiles == 1:
+                    if num_ipfiles == 1 and parent1 != 'ref':
                         axs[3].plot(ch.POS, ch.DAF_CI_UB, c=sv_threshold_color)
-                    elif num_ipfiles == 2: 
+                    elif num_ipfiles == 2 or parent1 == 'ref': 
                         axs[3].plot(ch.POS, ch.DAF_CI_LB, c=sv_threshold_color)
                         axs[3].plot(ch.POS, ch.DAF_CI_UB, c=sv_threshold_color)
 
@@ -1063,9 +1063,9 @@ def bsaseq_plot_sw(chrm_list, datafr):
             axs[2].plot([plot_sp, plot_ep], [thrshld_gs, thrshld_gs], c=sw_threshold_color)
             # axs[3].plot([plot_sp, plot_ep], [thrshld_af, thrshld_af], c=sw_threshold_color)
             # axs[3].plot([plot_sp, plot_ep], [thrshld_af*(-1), thrshld_af*(-1)], c=sw_threshold_color)
-            if num_ipfiles == 1:
+            if num_ipfiles == 1 and parent1 != 'ref':
                 axs[3].plot([plot_sp, plot_ep], [thrshld_af_abs, thrshld_af_abs], c=sw_threshold_color)
-            elif num_ipfiles == 2:
+            elif num_ipfiles == 2 or parent1 == 'ref':
                 axs[3].plot([plot_sp, plot_ep], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
                 axs[3].plot([plot_sp, plot_ep], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
             # axs[1].plot(x, sm_thresholds_sw, c='m')
@@ -1104,9 +1104,9 @@ def bsaseq_plot_sw(chrm_list, datafr):
                     # G-statistic threshold at the SV level
                     axs[2,i-1].plot(ch.POS, ch.smthedGSThrshld, c=sv_threshold_color)
                     # Δ(allele frequency) confidence intervals at the SV level
-                    if num_ipfiles == 1:
+                    if num_ipfiles == 1 and parent1 != 'ref':
                         axs[3,i-1].plot(ch.POS, ch.smthedDAFPCI, c=sv_threshold_color)
-                    elif num_ipfiles == 2:
+                    elif num_ipfiles == 2 or parent1 == 'ref':
                         axs[3,i-1].plot(ch.POS, ch.smthedDAFPCI, c=sv_threshold_color)
                         axs[3,i-1].plot(ch.POS, ch.smthedDAFNCI, c=sv_threshold_color)
             else:
@@ -1120,9 +1120,9 @@ def bsaseq_plot_sw(chrm_list, datafr):
                     # G-statistic threshold at the SV level
                     axs[2,i-1].plot(ch.POS, ch.GS_Thrshld, c=sv_threshold_color)
                     # Δ(allele frequency) confidence intervals at the SV level
-                    if num_ipfiles == 1:
+                    if num_ipfiles == 1 and parent1 != 'ref':
                         axs[3,i-1].plot(ch.POS, ch.DAF_CI_UB, c=sv_threshold_color)
-                    elif num_ipfiles == 2:
+                    elif num_ipfiles == 2 or parent1 == 'ref':
                         axs[3,i-1].plot(ch.POS, ch.DAF_CI_LB, c=sv_threshold_color)
                         axs[3,i-1].plot(ch.POS, ch.DAF_CI_UB, c=sv_threshold_color)
 
@@ -1131,9 +1131,9 @@ def bsaseq_plot_sw(chrm_list, datafr):
             axs[2,i-1].plot([plot_sp, plot_ep], [thrshld_gs, thrshld_gs], c=sw_threshold_color)
             # axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af, thrshld_af], c=sw_threshold_color)
             # axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af*(-1), thrshld_af*(-1)], c=sw_threshold_color)
-            if num_ipfiles == 1:
+            if num_ipfiles == 1 and parent1 != 'ref':
                 axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af_abs, thrshld_af_abs], c=sw_threshold_color)
-            elif num_ipfiles == 2:
+            elif num_ipfiles == 2 or parent1 == 'ref':
                 axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af_n, thrshld_af_n], c=sw_threshold_color)
                 axs[3,i-1].plot([plot_sp, plot_ep], [thrshld_af_p, thrshld_af_p], c=sw_threshold_color)
             # axs[1, i-1].plot(x, sm_thresholds_sw, c='m')
@@ -1174,14 +1174,17 @@ def accurate_threshold_sw(l, df):
         thresholds = sm_thresholds_sw(peak_sw)
 
         # peaks.append([sub_l[0], sub_l[1], int(peak_sw[fb_ld].mean()), int(peak_sw[sb_ld].mean()), sSV, totalSV, ratio, sm_thresholds_sw(peak_sw)])
-        peaks.append([sub_l[0], sub_l[1], peak_sw[fb_ld].mean(), peak_sw[sb_ld].mean(), sSV, totalSV, ratio, thresholds[0][1], peak_sw.G_S.mean(), thresholds[1][1], peak_sw.Delta_AF.mean(), thresholds[2][0], thresholds[2][1], pvalue_tt])
+        peaks.append([sub_l[0], sub_l[1], peak_sw[fb_ld].mean(), peak_sw[sb_ld].mean(), sSV, totalSV, ratio, thresholds[0][1], peak_sw.G_S.mean(), thresholds[1][1], peak_sw.Delta_AF.mean(), thresholds[2][0], thresholds[2][1], thresholds[3][1], pvalue_tt])
 
-    header_results = ['CHROM','POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'Threshold_sSV', 'GS', 'Threshold_GS', 'DAF', 'DAF_CI_LB', 'DAF_CI_UB', 'pvalue_tt']
+    header_results = ['CHROM','POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'Threshold_sSV', 'GS', 'Threshold_GS', 'DAF', 'DAF_CI_LB', 'DAF_CI_UB', 'DAF_Thrshld', 'pvalue_tt']
     peak_df = pd.DataFrame(peaks, columns=header_results)
-    peak_df['Significancy_SSV'] = np.where(peak_df[r'sSV/totalSV']>=peak_df['Threshold_sSV'], 1, 0)
-    peak_df['Significancy_GS'] = np.where(peak_df.GS>=peak_df.Threshold_GS, 1, 0)
-    peak_df['Significancy_AF'] = np.where((peak_df.DAF>=peak_df.DAF_CI_UB) | (peak_df.DAF<=peak_df.DAF_CI_LB), 1, 0)
-    peak_df['Significancy_TT'] = np.where(peak_df['pvalue_tt']<=alpha, 1, 0)
+    peak_df['Significance_SSV'] = np.where(peak_df[r'sSV/totalSV']>=peak_df['Threshold_sSV'], 1, 0)
+    peak_df['Significance_GS'] = np.where(peak_df.GS>=peak_df.Threshold_GS, 1, 0)
+    if num_ipfiles == 1 and parent1 != 'ref':
+        peak_df['Significance_AF'] = np.where((peak_df.DAF>=peak_df.DAF_Thrshld), 1, 0)
+    elif num_ipfiles == 2 or parent1 == 'ref':
+        peak_df['Significance_AF'] = np.where((peak_df.DAF>=peak_df.DAF_CI_UB) | (peak_df.DAF<=peak_df.DAF_CI_LB), 1, 0)
+    peak_df['Significance_TT'] = np.where(peak_df['pvalue_tt']<=alpha, 1, 0)
 
     peak_df.to_csv(os.path.join(results, args.output), index=False)
 
@@ -1230,6 +1233,7 @@ ap.add_argument('-d', '--read_length', type=int, required=False, help='make deta
 ap.add_argument('-e', '--region', required=False, help='interested region(s): chrm,start,end', type=lambda s: [int(t) for t in s.split(',')], default='-1')
 ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SVs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,5,1')
 ap.add_argument('-a','--adjust_gap', type=bool, required=False, help='adjust gaps between subplot', default=False)
+ap.add_argument('--parent', required=False, type=str, help='The genome sequence of a parent is used as the reference for sv calling', default='no')
 
 args = ap.parse_args()
 chrm_order = args.chromosome_order
@@ -1246,6 +1250,7 @@ smth_wl, poly_order = args.smoothing[0], args.smoothing[1]
 region = args.region
 gq_value, min_SVs, mirror_index = args.misc[0], args.misc[1], args.misc[2]
 gap_adjust = args.adjust_gap
+parent1 = args.parent
 
 num_ipfiles = len(input_files)
 misc = []
@@ -1494,7 +1499,7 @@ else:
         bsa_svs[sb_af] = bsa_svs[sb_ad_alt]/bsa_svs[sb_ld]
         bsa_svs['Delta_AF'] = bsa_svs[sb_af] - bsa_svs[fb_af]
 
-        if num_ipfiles == 1:
+        if num_ipfiles == 1 and parent1 != 'ref':
             bsa_svs['Delta_AF'] = bsa_svs['Delta_AF'].abs()
 
         # Calculate G-statistic
