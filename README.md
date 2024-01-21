@@ -37,9 +37,9 @@ Four files (`sliding_windows.csv`, `sv_fagz.csv`, `sv_fagz_fep.csv`, and `thresh
 
 `-a True -g a,b,c,d,e,f`
 
-- `a` - the horizontal gap
-- `b` - the vertical gap
-- `c`, `d`, `e`, and `f` - the top, bottom, left, and right margins, respectively
+- `a` - the horizontal gap between subplots
+- `b` - the vertical gap between subplots
+- `c`, `d`, `e`, and `f` - the top, bottom, left, and right margins of the plot, respectively
 
 The default values for `a`, `b`, `c`, `d`, `e`, and `f` are 0.028, 0.056, 0.0264, 0.054, 0.076, 0.002, 0.002, respectively. The script uses the `sliding_windows.csv` and `threshold.txt` files generated previously for plotting, and it is very fast.
 
