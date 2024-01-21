@@ -1176,7 +1176,7 @@ def accurate_threshold_sw(l, df):
         # peaks.append([sub_l[0], sub_l[1], int(peak_sw[fb_ld].mean()), int(peak_sw[sb_ld].mean()), sSV, totalSV, ratio, sm_thresholds_sw(peak_sw)])
         peaks.append([sub_l[0], sub_l[1], peak_sw[fb_ld].mean(), peak_sw[sb_ld].mean(), sSV, totalSV, ratio, thresholds[0][1], peak_sw.G_S.mean(), thresholds[1][1], peak_sw.Delta_AF.mean(), thresholds[2][0], thresholds[2][1], thresholds[3][1], pvalue_tt])
 
-    header_results = ['CHROM','POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'Threshold_sSV', 'GS', 'Threshold_GS', 'DAF', 'DAF_CI_LB', 'DAF_CI_UB', 'DAF_Thrshld', 'pvalue_tt']
+    header_results = ['CHROM','POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'Threshold_sSV', 'GS', 'Threshold_GS', 'DAF', 'DAF_CI_LB', 'DAF_CI_UB', 'DAF_Threshold', 'pvalue_tt']
     peak_df = pd.DataFrame(peaks, columns=header_results)
     peak_df['Significance_SSV'] = np.where(peak_df[r'sSV/totalSV']>=peak_df['Threshold_sSV'], 1, 0)
     peak_df['Significance_GS'] = np.where(peak_df.GS>=peak_df.Threshold_GS, 1, 0)
@@ -1731,4 +1731,6 @@ fig.savefig(os.path.join(results, 'PyBSASeq.eps'))
 fig.savefig(os.path.join(results, 'PyBSASeq.svg'))
 fig.savefig(os.path.join(results, 'PyBSASeq.png'), dpi=600)
 
-print('\nIf two or more peaks and all the values in between are beyond the confidence intervals/thresholds, only the highest peak or the lowerest valley will be identified as the peak/valley of this region. The positions of the other peaks/valleys can be identified and their significance can be verified by rerunning the script using the region option.\n')
+print('\nIf two or more peaks and all the values in between are beyond the confidence intervals/thresholds, only the highest peak or the lowerest valley will be identified as the peak/valley of this region. The positions of the other peaks/valleys can be identified and their significance can be verified by rerunning the script using the region option. An example is provied below:')
+print('python PyBSASeq.py -i parents.csv,bulks.csv --region 1,1000000,4000000,1,6000000,9000000,10,20000000,40000000')
+print('For the region argument, the first digit is the chromosome name, the second digit and the third digit are the startpoint and the endpoint of the chromooosome region of interest. You can add as many regions as you need.\n')
