@@ -1181,7 +1181,7 @@ def accurate_threshold_sw(l, df):
     peak_df['Significance_SSV'] = np.where(peak_df[r'sSV/totalSV']>=peak_df['Threshold_sSV'], 1, 0)
     peak_df['Significance_GS'] = np.where(peak_df.GS>=peak_df.Threshold_GS, 1, 0)
     if num_ipfiles == 1 and parent1 != 'ref':
-        peak_df['Significance_AF'] = np.where((peak_df.DAF>=peak_df.DAF_Thrshld), 1, 0)
+        peak_df['Significance_AF'] = np.where((peak_df.DAF>=peak_df.DAF_Threshold), 1, 0)
     elif num_ipfiles == 2 or parent1 == 'ref':
         peak_df['Significance_AF'] = np.where((peak_df.DAF>=peak_df.DAF_CI_UB) | (peak_df.DAF<=peak_df.DAF_CI_LB), 1, 0)
     peak_df['Significance_TT'] = np.where(peak_df['pvalue_tt']<=alpha, 1, 0)
