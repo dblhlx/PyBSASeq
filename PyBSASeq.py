@@ -1176,12 +1176,12 @@ def accurate_threshold_sw(l, df):
         # peaks.append([sub_l[0], sub_l[1], int(peak_sw[fb_ld].mean()), int(peak_sw[sb_ld].mean()), sSV, totalSV, ratio, sm_thresholds_sw(peak_sw)])
         peaks.append([sub_l[0], sub_l[1], peak_sw[fb_ld].mean(), peak_sw[sb_ld].mean(), sSV, totalSV, ratio, thresholds[0][1], peak_sw.G_S.mean(), thresholds[1][1], peak_sw.Delta_AF.mean(), thresholds[2][0], thresholds[2][1], thresholds[3][1], pvalue_tt])
 
-    header_results = ['CHROM','POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'Threshold_sSV', 'GS', 'Threshold_GS', 'DAF', 'DAF_CI_LB', 'DAF_CI_UB', 'DAF_Threshold', 'pvalue_tt']
+    header_results = ['CHROM','POS', fb_id+'.AvgLD', sb_id+'.AvgLD', 'sSV', 'totalSV', r'sSV/totalSV', 'Threshold_sSV', 'GS', 'Threshold_GS', 'DAF', 'DAF_CI_LB', 'DAF_CI_UB', 'Threshold_DAF', 'pvalue_tt']
     peak_df = pd.DataFrame(peaks, columns=header_results)
     peak_df['Significance_SSV'] = np.where(peak_df[r'sSV/totalSV']>=peak_df['Threshold_sSV'], 1, 0)
     peak_df['Significance_GS'] = np.where(peak_df.GS>=peak_df.Threshold_GS, 1, 0)
     if num_ipfiles == 1 and parent1 != 'ref':
-        peak_df['Significance_AF'] = np.where((peak_df.DAF>=peak_df.DAF_Threshold), 1, 0)
+        peak_df['Significance_AF'] = np.where((peak_df.DAF>=peak_df.Threshold_DAF), 1, 0)
     elif num_ipfiles == 2 or parent1 == 'ref':
         peak_df['Significance_AF'] = np.where((peak_df.DAF>=peak_df.DAF_CI_UB) | (peak_df.DAF<=peak_df.DAF_CI_LB), 1, 0)
     peak_df['Significance_TT'] = np.where(peak_df['pvalue_tt']<=alpha, 1, 0)
@@ -1476,7 +1476,7 @@ else:
             bsa_svs['ad_Swap'] = np.where(bsa_svs.p_REF==bsa_svs.REF, 1, -1)
             bsa_svs.to_csv(os.path.join(filtering_path, 'bsa_svs_after.csv'), index=None)
 
-        if sr_length >= 30:
+        if sr_length > 1:
             bsa_svs['DI'] = di(selected_chrms, bsa_svs)
             bsa_svs.to_csv(os.path.join(dgns_path, 'bsa_svs_di.csv'))
             bsa_svs = bsa_svs[bsa_svs.DI==1]
@@ -1733,4 +1733,4 @@ fig.savefig(os.path.join(results, 'PyBSASeq.png'), dpi=600)
 
 print('\nIf two or more peaks and all the values in between are beyond the confidence intervals/thresholds, only the highest peak or the lowerest valley will be identified as the peak/valley of this region. The positions of the other peaks/valleys can be identified and their significance can be verified by rerunning the script using the region option. An example is provied below:')
 print('python PyBSASeq.py -i parents.csv,bulks.csv --region 1,1000000,4000000,1,6000000,9000000,10,20000000,40000000')
-print('For the region argument, the first digit is the chromosome ID, the second digit and the third digit are the startpoint and the endpoint of the chromooosome region of interest. You can add as many regions as you need.\n')
+print('For the region argument, the first digit is the chromosome ID, while the second digit and the third digit are the startpoint and the endpoint of the chromooosome region of interest, respectively. You can add as many regions as you need.\n')
