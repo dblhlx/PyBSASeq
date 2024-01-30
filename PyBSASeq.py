@@ -1274,7 +1274,7 @@ thrshld_file = os.path.join(path, 'Results', 'threshold.txt')
 # status_file = os.path.join(path, 'Results', 'COMPLETE.txt')
 current_dt = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 results = os.path.join(path, 'Results', current_dt)
-dgns_path = os.path.join(path, 'temp')
+dgns_path = os.path.join(path, 'Results', 'temp')
 
 if not os.path.exists(results):
     os.makedirs(results)
@@ -1336,9 +1336,9 @@ else:
         m = 0
         for file in input_files:
             in_file = os.path.join(path, file)
-            print(in_file)
+            # print(in_file)
             sample = file.split('.')[0]
-            filtering_path = os.path.join(path, 'FilteredSVs', sample)
+            filtering_path = os.path.join(path, 'Results', 'FilteredSVs', sample)
 
             if in_file.endswith('.tsv'):
                 separator = '\t'
@@ -1370,7 +1370,8 @@ else:
                 chrm_dict[selected_chrms[i-1]] = i
 
             sv_raw_df['ChrmSortID'] = sv_raw_df['CHROM']
-            sv_raw_df['ChrmSortID'].replace(chrm_dict, inplace=True)
+            sv_raw_df.replace({'ChrmSortID': chrm_dict}, inplace=True)
+            # sv_raw_df['ChrmSortID'].replace(chrm_dict, inplace=True)
 
             # Obtain the bulk IDs from the header
             bulk_list = bulk_names(sv_raw_df)
