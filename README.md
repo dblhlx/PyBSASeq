@@ -66,23 +66,23 @@ Two SV datasets for testing purpose, one from rice while the other from maize, a
 In the file `PyBSASeq.pdf`, peaks/valleys in panels B, C, and D that are beyond their genome-wide thresholds/confidence intervals very likely represent genomic regions controlling the trait of interest. Then genomic region-specific thresholds/confidence intervals of these peaks/valleys are calculated to verrify the significance status of each peak/valley. The results are presented in the file `BSASeq.csv`. A peak/valley is significant if its significance_status is equal to 1, otherwise, it is not significant.
 
 In `BSASeq.csv`, each row indicates a sliding window that contains a potentially significant peak/valley. The meanning of each column is shown below.
-- firstbulk_id.AvgLD -: theaverage sequencing depth of the first bulk
-- secondbulk_id.AvgLD -: the averagesequencing depth of the second bulk
-- sSV -: the number of the significant SVs in the sliding window
-- totalSV -: the number of the total SVs in thesliding window
-- sSV/totalSV -: the ratio of the sSV/totalSV in the sliding window
-- Threshold_sSV -: thethreshold of the sSV/totalSV ratio of the sliding window
-- GS -: the G-statistic value of the sliding window
-- Threshold_GS -: thethreshold of the G-statistic value of the sliding window
-- DAF -: the allele frequency difference of the sliding window
-- DAF_CI_LB -: the confidenceinterval lower bound of DAF of the sliding window
-- DAF_CI_UB -: the confidenceinterval upper bound of DAF of the sliding window
-- Threshold_DAF -: the thresholdof DAF of the sliding window when parental genome sequences are not avaiable
-- pvalue_tt -: the pvalue of t-test of the sliding window
-- Significance_SSV -: the significantstatus of the sliding window when using the significant SV methods
-- Significance_GS -: the significantstatus of the sliding window when using the G-statistic methods
-- Significance_AF -: the significantstatus of the sliding window when using the allele frequency methods
-- Significance_TT -: the significantstatus of the sliding window when using the t-test methods
+- firstbulk_id.AvgLD: theaverage sequencing depth of the first bulk
+- secondbulk_id.AvgLD: the averagesequencing depth of the second bulk
+- sSV: the number of the significant SVs in the sliding window
+- totalSV: the number of the total SVs in thesliding window
+- sSV/totalSV: the ratio of the sSV/totalSV in the sliding window
+- Threshold_sSV: thethreshold of the sSV/totalSV ratio of the sliding window
+- GS: the G-statistic value of the sliding window
+- Threshold_GS: thethreshold of the G-statistic value of the sliding window
+- DAF: the allele frequency difference of the sliding window
+- DAF_CI_LB: the confidenceinterval lower bound of DAF of the sliding window
+- DAF_CI_UB: the confidenceinterval upper bound of DAF of the sliding window
+- Threshold_DAF: the thresholdof DAF of the sliding window when parental genome sequences are not avaiable
+- pvalue_tt: the pvalue of t-test of the sliding window
+- Significance_SSV: the significantstatus of the sliding window when using the significant SV methods
+- Significance_GS: the significantstatus of the sliding window when using the G-statistic methods
+- Significance_AF: the significantstatus of the sliding window when using the allele frequency methods
+- Significance_TT: the significantstatus of the sliding window when using the t-test methods
 
 #### Bug report
 
