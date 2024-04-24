@@ -72,21 +72,21 @@ In `BSASeq.csv`, each row indicates a sliding window that contains a potentially
 - totalSV: the number of the total SVs in thesliding window
 - sSV/totalSV: the ratio of the sSV/totalSV in the sliding window
 - Threshold_sSV: the threshold of the sSV/totalSV ratio of the sliding window
-- GS: the G-statistic value of the sliding window
-- Threshold_GS: the threshold of the G-statistic value of the sliding window
+- GS: the _G_-statistic value of the sliding window
+- Threshold_GS: the threshold of the _G_-statistic value of the sliding window
 - DAF: the allele frequency difference of the sliding window
 - DAF_CI_LB: the confidenceinterval lower bound of DAF of the sliding window
 - DAF_CI_UB: the confidenceinterval upper bound of DAF of the sliding window
 - Threshold_DAF: the thresholdof DAF of the sliding window when parental genome sequences are not avaiable
-- pvalue_tt: the pvalue of t-test of the sliding window
-- Significance_SSV: the significantstatus of the sliding window when using the significant SV methods
-- Significance_GS: the significantstatus of the sliding window when using the G-statistic methods
-- Significance_AF: the significantstatus of the sliding window when using the allele frequency methods
-- Significance_TT: the significantstatus of the sliding window when using the t-test methods
+- pvalue_tt: the pvalue of _t_-test of the sliding window
+- Significance_SSV: the significant status of the sliding window when using the significant SV method
+- Significance_GS: the significant status of the sliding window when using the _G_-statistic method
+- Significance_AF: the significant status of the sliding window when using the allele frequency method
+- Significance_TT: the significant status of the sliding window when using the _t_-test method
 
 #### Bug report
 
-Please report [here](https://github.com/dblhlx/PyBSASeq/issues) if encounter any issue. I can receive issue notifications now.
+Please report [here](https://github.com/dblhlx/PyBSASeq/issues) if encounter any issue. I can receive ~~issue notifications~~ now.
 
 #### Other methods for BSA-Seq data analysis
 BSA-Seq data analysis can be done using either the [SNP index (allele frequency) method](https://onlinelibrary.wiley.com/doi/full/10.1111/tpj.12105) or the [G-statistic method](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002255) as well. I implemented both methods in Python for the purpose of comparison: [PySNPIndex](https://github.com/dblhlx/PySNPIndex) and [PyGStatistic](https://github.com/dblhlx/PyGStatistic). The Python implementation of the original [G-statistic method](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002255) by Magwene can be found [here](https://bitbucket.org/pmagwene/bsaseq/src/master/) (just found this site today, 6/27/2019), and the R implementation of both methods by Mansfeld can be found [here](https://github.com/bmansfeld/QTLseqr).
