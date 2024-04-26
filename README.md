@@ -75,9 +75,9 @@ In `BSASeq.csv`, each row indicates a sliding window that contains a potentially
 - GS: the _G_-statistic value of the sliding window
 - Threshold_GS: the threshold of the _G_-statistic value of the sliding window
 - DAF: the allele frequency difference of the sliding window
-- DAF_CI_LB: the confidence interval lower bound of DAF of the sliding window
-- DAF_CI_UB: the confidence interval upper bound of DAF of the sliding window
-- Threshold_DAF: the DAF threshold of the sliding window when parental genome sequences are not avaiable
+- DAF_CI_LB: the DAF confidence interval lower bound of the sliding window
+- DAF_CI_UB: the DAF confidence interval upper bound of the sliding window
+- Threshold_DAF: the DAF threshold of the sliding window when parental genome sequences are not avaiable (or not used)
 - pvalue_tt: the _t_-test _p_-value of the sliding window
 - Significance_SSV: the significant status of the sliding window when using the significant SV method
 - Significance_GS: the significant status of the sliding window when using the _G_-statistic method
