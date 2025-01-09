@@ -950,7 +950,7 @@ def bsaseq_plot(chrm_list, datafr):
                     zigzag = []
             m += 1
 
-        # Handle the case in which an QTL is at the end of the chromosome
+        # Handle the case in which an QTL is nearby the end of the chromosome
         if sw_dict[i][-1][6] >= thrshld_fe:
             sv_region[-1].extend([sw_dict[i][-1][1], zigzag, num_of_sws])
 
