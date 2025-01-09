@@ -1737,4 +1737,4 @@ fig.savefig(os.path.join(results, 'PyBSASeq.png'), dpi=600)
 
 print('\nIf two or more peaks and all the values in between are beyond the confidence intervals/thresholds, only the highest peak or the lowerest valley will be identified as the peak/valley of this region. The positions of the other peaks/valleys can be identified and their significance can be verified by rerunning the script using the region option. An example is provied below:')
 print('python PyBSASeq.py -i parents.csv,bulks.csv --region 1,1000001,4000000,1,6000001,9000000,10,20000001,40000000')
-print('For the region argument, the first digit is the chromosome ID, while the second digit and the third digit are the startpoint and the endpoint of the chromooosome region of interest, respectively. You can add as many regions as you need.\n')
+print('For the region argument, the first digit is the chromosome ID, while the second digit and the third digit are the startpoint and the endpoint of the chromosome region of interest, respectively. You can add as many regions as you need.\n')
