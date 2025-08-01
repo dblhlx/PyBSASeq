@@ -1674,7 +1674,7 @@ else:
     fig, axs = plt.subplots(nrows=len(height_ratio), ncols=len(selected_chrms), figsize=(20, 12.8), sharex='col', sharey='row', 
             gridspec_kw={'width_ratios': chrmSzL, 'height_ratios': height_ratio})
 
-    tl = selected_chrms
+    tl = selected_chrms.copy()
     for x in tl:
         y = bsa_svs[bsa_svs.CHROM==x]
         print(x, len(y.index))
