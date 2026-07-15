@@ -1,9 +1,9 @@
-"""
-PyBSASeq, version 3.14
+'''
+PyBSASeq, version 3.1415
 Created on Fri Oct  5 08:22:16 2018
 Updated on 
 @author: Jianbo Zhang
-"""
+'''
 import os
 import sys
 import time
@@ -24,7 +24,8 @@ except ImportError:
     except ImportError:
         print('Either the module \'Fisher\' (https://github.com/brentp/fishers_exact_test) or \'fisher_exact\' from \'scipy.stat\' is needed to performe Fisher\'s exact tests.')
         sys.exit()
-
+import statsmodels.api as sm
+from statsmodels.stats.stattools import durbin_watson
 
 def sm_allelefreq(pop_struc, bulk_size, rep):
     '''
@@ -562,9 +563,9 @@ def thresholds_gw(df):
 
 
 def thresholds_sw(df):
-    df = df.copy()
-    df['DI'] = di(df)
-    df = df[df.DI==1]
+    # df = df.copy()
+    # df['DI'] = di(df)
+    # df = df[df.DI==1]
     # For the calculation of the sliding window-specific sSV/totalSV threshold
     sw_ratio_list, sw_gs_list, sw_daf_list, sw_daf_abs_list = [], [], [], []
 
@@ -620,7 +621,7 @@ def replace_zero(li):
         j += 1
 
 
-def di(df):
+def di(df, frag_size):
     # https://stackoverflow.com/questions/20625582/how-to-deal-with-settingwithcopywarning-in-pandas
     # https://www.dataquest.io/blog/settingwithcopywarning/
     if not os.path.exists(dgns_path):
@@ -632,7 +633,7 @@ def di(df):
         ch = df[df.CHROM==chrm].copy()
         first_pos_value = ch['POS'].iloc[0]                 # ch.at[0, 'POS'] may not work for dataframe subsets
         pos_l1 = ch.POS.tolist()
-        pos_l1.insert(0, first_pos_value-seg_size)          # ensure the first SV is included even if it located at the position 1
+        pos_l1.insert(0, first_pos_value-frag_size)          # ensure the first SV is included even if it located at the position 1
         pos_l1.pop()
 
         ch['POS1'] = pos_l1
@@ -642,7 +643,7 @@ def di(df):
         i, a = 0, []
 
         while i < len(l):
-            if l[i] >= seg_size:
+            if l[i] >= frag_size:
                 a.append(1)
                 i += 1
             else:
@@ -650,12 +651,12 @@ def di(df):
                 temp = l[i]
                 i += 1
                 m = i
-                while i < len(l)-1 and temp + l[i] < seg_size:
+                while i < len(l)-1 and temp + l[i] < frag_size:
                     a.append(0)
                     temp += l[i]
                     i += 1
                 if m != i:
-                    if temp < seg_size and i >= len(l)-1:
+                    if temp < frag_size and i >= len(l)-1:
                         a.append(0)
                     else:
                         a.append(1)
@@ -1403,7 +1404,7 @@ def accurate_threshold_gw(l, df):
 
 
 def impute_di(df):
-    df['DI'] = di(df)
+    df['DI'] = di(df, seg_size)
     df.to_csv(os.path.join(dgns_path, 'bulk_df_di_before.csv'))
 
     df.loc[df.DI==0, 'Delta_AF'] = np.nan
@@ -1618,6 +1619,55 @@ def peak_verification(l, df):
         print('Please install the module \'Fisher\' if more precise thresholds of the QTL loci are desired.')
 
 
+def dw(df):
+    chrm_list = df['CHROM'].unique().tolist()
+    for chr in chrm_list:
+        df_chr = df[df.CHROM==chr]
+
+        x = df_chr.POS
+        y_fb, y_sb = df_chr[fb_ld], df_chr[sb_ld]
+
+        x_const = sm.add_constant(x)
+
+        model_fb = sm.OLS(y_fb, x_const).fit()
+        residuals_fb = model_fb.resid
+
+        model_sb = sm.OLS(y_sb, x_const).fit()
+        residuals_sb = model_sb.resid
+
+        dw_fb = durbin_watson(residuals_fb)
+        dw_sb = durbin_watson(residuals_sb)
+        
+        if dw_fb < 1.5 or dw_sb < 1.5:
+            return True
+
+    return False
+
+
+def find_seg_size(df):
+    continue_cal = dw(df)
+    
+    if continue_cal == False:
+        return 1
+
+    i_seg_size = sr_length
+    df_dw = df.copy()
+    df_dw['DI'] = di(df_dw, i_seg_size)
+    df_dw = df_dw[df_dw.DI==1]
+    continue_cal = dw(df_dw)
+    while continue_cal == True:
+        i_seg_size += int(0.5 * sr_length)
+        if i_seg_size >= max_seg_size:
+            return max_seg_size
+
+        df_dw = df.copy()
+        df_dw['DI'] = di(df_dw, i_seg_size)
+        df_dw = df_dw[df_dw.DI==1]
+        continue_cal = dw(df_dw)
+
+    return i_seg_size
+
+
 def seg_statistics(df):
     # num_cols = [fb_ad_ref, fb_ad_alt, sb_ad_ref, sb_ad_alt, fb_ld, sb_ld]
     # df['Seg'] = df.POS // seg_size
@@ -1678,12 +1728,12 @@ ap.add_argument('-g', '--gaps', required=False, help='gaps between subplots: hor
 ap.add_argument('-m', '--smoothing', required=False, help='smoothing parameters: window_len,polyorder', type=lambda s: [int(t) for t in s.split(',')], default='51,3')
 ap.add_argument('-t','--smooth', type=bool, required=False, help='smooth the plot', default=True)
 ap.add_argument('--chromosome_order', required=False, help='manually set chromosome order', type=lambda s: [t for t in s.split(',')], default=False)
-ap.add_argument('-d', '--read_length', type=int, required=False, help='make deta point independent of each other', default=0)
+ap.add_argument('-l', '--read_length', type=int, required=False, help='make deta point independent of each other', default=100)
 ap.add_argument('-e', '--region', required=False, help='interested region(s): chrm,start,end', type=lambda s: [int(t) for t in s.split(',')], default='-1')
 ap.add_argument('-c', '--misc', required=False, help='cut-off GQ value, minimum SVs in a sliding window, extremely high read, and mirror index of Δ(allele frequency)', type=lambda s: [int(t) for t in s.split(',')], default='20,1,1')
 ap.add_argument('-a','--adjust_gap', type=bool, required=False, help='adjust gaps between subplot', default=False)
-ap.add_argument('--parent', required=False, type=str, help='The genome sequence of a parent is used as the reference for sv calling', default='ref')
-ap.add_argument('--seg', required=False, help='Divide a chromosome into segments of the same size', type=lambda s: [int(t) for t in s.split(',')], default='600,0')
+ap.add_argument('--parent', required=False, type=str, help='The genome sequence of a parent is used as the reference for sv calling', default='none')
+ap.add_argument('--seg_step', type=int, required=False, help='Divide a chromosome into segments of the same size', default=0)
 
 args = ap.parse_args()
 chrm_order = args.chromosome_order
@@ -1701,8 +1751,11 @@ region = args.region
 gq_value, min_SVs, mirror_index = args.misc[0], args.misc[1], args.misc[2]
 gap_adjust = args.adjust_gap
 parent1 = args.parent
-seg_size, ncrmntl_stp = args.seg[0], args.seg[1]
-print(seg_size, ncrmntl_stp)
+ncrmntl_stp = args.seg_step
+max_seg_size = 1000
+# print(ncrmntl_stp)
+di_df = False
+test = True
 
 num_ipfiles = len(input_files)
 misc = []
@@ -1710,10 +1763,9 @@ min_frag_size = sw_size + smth_wl * incremental_step    # Minimum chromosome siz
 # additional_peaks = ''
 percentile_ci = [alpha*100/2, 100-alpha*100/2]          # [0.5, 99.5, 2.5, 97.5, 5.0, 95.0]
 percentile_th = 100-alpha*100/2
-print(percentile_ci, percentile_th)
+# print(percentile_ci, percentile_th)
 curve_color, sv_threshold_color, sw_threshold_color = 'k', 'magenta', 'r'
 ttl_sv_color, bg_color = 'b', 'gray'
-test = False
 min_sv = 500    # Ploting will not be performed if the selected chromosome/region has less SVs than min_sv
 
 # Obtain the frequencies of the ALT allele in both bulks
@@ -1773,6 +1825,15 @@ else:
         sm_fb_ad_ref, sm_fb_ad_alt = 'sm_' + fb_ad_ref, 'sm_' + fb_ad_alt
         sm_sb_ad_ref, sm_sb_ad_alt = 'sm_' + sb_ad_ref, 'sm_' + sb_ad_alt
 
+        dw_columns = ['CHROM', 'POS', fb_ld, sb_ld]
+        dw_dataframe = bulk_df[dw_columns].copy()
+        seg_size = find_seg_size(dw_dataframe)
+        print(seg_size)
+
+        bulk_df = bulk_df.copy()
+        bulk_df['DI'] = di(bulk_df, seg_size)
+        bulk_df_di = bulk_df[bulk_df.DI==1]
+
         bulk_df[sm_fb_ad_ref] = bulk_df[fb_ld] - bulk_df[sm_fb_ad_alt]
         bulk_df[sm_sb_ad_ref] = bulk_df[sb_ld] - bulk_df[sm_sb_ad_alt]
 
@@ -1794,16 +1855,16 @@ else:
             chrmSzD = temp[1]
             chrmSzL = temp[2]
 
-            sv_per_sw = int(len(bulk_df.index) * sw_size / sum(chrmSzL))
+            sv_per_sw = int(len(bulk_df_di.index) * sw_size / sum(chrmSzL))
 
             # Calculate or retrieve the thresholds.
-            thrshlds = gw_thresholds(bulk_df)
+            thrshlds = gw_thresholds(bulk_df_di)
             thrshld_fe = thrshlds[0]
             thrshld_gs = thrshlds[1]
             thrshld_af_n = thrshlds[2][0]
             thrshld_af_p = thrshlds[2][1]
             thrshld_af_abs = thrshlds[3]
-            sv_cis = sv_ci_gw(bulk_df)
+            sv_cis = sv_ci_gw(bulk_df_di)
             sv_ci_af_lb = sv_cis[0]
             sv_ci_af_ub = sv_cis[1]
             sv_ci_gs = sv_cis[2]
@@ -1959,15 +2020,21 @@ else:
 
         bulk_df = calculate_statistics(bulk_df)
 
+        dw_columns = ['CHROM', 'POS', fb_ld, sb_ld]
+        dw_dataframe = bulk_df[dw_columns].copy()
+        seg_size = find_seg_size(dw_dataframe)
+        print(seg_size)
+
         num_cols = [fb_ad_ref, fb_ad_alt, fb_ld, sb_ad_ref, sb_ad_alt, sb_ld]
 
-        if sr_length > 0:
-            bulk_df = bulk_df.copy()
-            bulk_df['DI'] = di(bulk_df)
-            bulk_df = bulk_df[bulk_df.DI==1]
+        bulk_df = bulk_df.copy()
+        bulk_df['DI'] = di(bulk_df, seg_size)   # Maybe it is good idea to copy the values from the find_seg_size function
+        bulk_df_di = bulk_df[bulk_df.DI==1]
+        if di_df == True:
+            bulk_df = bulk_df_di.copy()
             # bulk_df = impute_di(bulk_df)
             
-        elif ncrmntl_stp > 0 and 'fisher' in sys.modules:
+        elif seg_size > 1 and ncrmntl_stp > 0 and 'fisher' in sys.modules:
             bulk_df = average_seg_statistics(bulk_df)
             bulk_df.to_csv(oi_file_di, index=None)
 
@@ -1980,20 +2047,20 @@ else:
         ssv.to_csv(ssv_file, columns=essential_fields, index=None)
 
         # Calculate the average number of SVs in a sliding window
-        sv_per_sw = int(len(bulk_df.index) * sw_size / sum(chrmSzL))
+        sv_per_sw = int(len(bulk_df_di.index) * sw_size / sum(chrmSzL))
 
         misc.append(['Average SVs per sliding window', sv_per_sw])
         misc.append([f'Average locus depth in bulk {fb_id}', bulk_df[fb_ld].mean()])
         misc.append([f'Average locus depth in bulk {sb_id}', bulk_df[sb_ld].mean()])
 
         # Calculate or retrieve the thresholds.
-        thrshlds = gw_thresholds(bulk_df)
+        thrshlds = gw_thresholds(bulk_df_di)
         thrshld_fe = thrshlds[0]
         thrshld_gs = thrshlds[1]
         thrshld_af_n = thrshlds[2][0]
         thrshld_af_p = thrshlds[2][1]
         thrshld_af_abs = thrshlds[3]
-        sv_cis = sv_ci_gw(bulk_df)
+        sv_cis = sv_ci_gw(bulk_df_di)
         sv_ci_af_lb = sv_cis[0]
         sv_ci_af_ub = sv_cis[1]
         sv_ci_gs = sv_cis[2]
@@ -2007,7 +2074,7 @@ else:
 
     peaklst = pk_list(sv_region)
 
-    peak_verification(peaklst, bulk_df)
+    peak_verification(peaklst, bulk_df_di)
 
     misc.append(['Running time', [(time.time()-t0)/60]])
 
